@@ -18,7 +18,6 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        working-directory: backend
         run: pip install -r requirements.txt
 
       - name: Deploy to EC2
