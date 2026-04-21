@@ -3,6 +3,7 @@ from io import BytesIO
 
 from django.db import models
 from django.core.files import File
+from django.conf import settings
 
 
 class Ubicacion(models.Model):
@@ -138,3 +139,112 @@ class TipoTecnologia(models.Model):
     def __str__(self):
         return self.get_display()
     
+class EquipoBiomedico(models.Model):
+
+    nombre = models.CharField(max_length=100)
+
+    marca = models.ForeignKey(
+        Marca,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    modelo = models.ForeignKey(
+        Modelo,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    fabricante = models.ForeignKey(
+        Fabricante,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    tipoTecnologia = models.ForeignKey(
+        TipoTecnologia,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    serie = models.CharField(
+        max_length=50,
+        unique=True,
+        help_text="Número de serie del equipo biomédico"
+    )
+
+    ubicacion = models.ForeignKey(
+        Ubicacion,
+        on_delete=models.CASCADE
+    )
+
+    fechaRegistro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.id} - {self.nombre}"
+    
+class CodigoQR(models.Model):
+
+    equipo = models.OneToOneField(
+        EquipoBiomedico,
+        on_delete=models.CASCADE,
+        related_name='codigo_qr'
+    )
+
+    fechaGeneracion = models.DateField(auto_now_add=True)
+
+    def generarCodigo(self):
+
+        url = f"{settings.BASE_URL}/api/equipos/{self.equipo.id}/"
+
+        qr = qrcode.make(url)
+
+        buffer = BytesIO()
+
+        qr.save(buffer,format="PNG")
+
+        nombre_archivo = f"equipo_{self.equipo.id} png"
+
+        self.codigo.save(nombre_archivo,File(buffer),save=False)
+
+    
+    def save(self,*args,**kwargs):
+
+        if not self.codigo:
+            self.generarCodigo()
+
+        super().save(*args,**kwargs)
+
+    def __str__(self):
+
+        return f"QR Equipo {self.equipo.id}"
+    
+
+class ArchivoAdjunto(models.Model):
+
+    equipo = models.ForeignKey(
+        EquipoBiomedico,
+        on_delete=models.CASCADE,
+        related_name='archivos'
+    )
+
+    nombre = models.CharField(max_length=100)
+
+    archivo = models.FileField(upload_to='archivos_adjuntos/')
+
+    extension = models.CharField(max_length=20)
+
+    tamano = models.IntegerField()
+
+    tipo = models.CharField(max_length=80)
+
+    ruta = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True
+    )
+
+    fechaSubida = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
