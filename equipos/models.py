@@ -137,7 +137,7 @@ class TipoTecnologia(models.Model):
     )
 
     def __str__(self):
-        return self.get_display()
+        return self.get_nombre_display()
     
 class EquipoBiomedico(models.Model):
 
@@ -205,7 +205,7 @@ class CodigoQR(models.Model):
 
         qr.save(buffer,format="PNG")
 
-        nombre_archivo = f"equipo_{self.equipo.id} png"
+        nombre_archivo = f"equipo_{self.equipo.id}.png"
 
         self.codigo.save(nombre_archivo,File(buffer),save=False)
 

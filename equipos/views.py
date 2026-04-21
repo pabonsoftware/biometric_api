@@ -22,7 +22,7 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
 
     def list(self,request):
 
-        nombre = request.query_parms.get("nombre")
+        nombre = request.query_params.get("nombre")
         serie = request.query_params.get("serie")
         marca = request.query_params.get("marca")
         modelo = request.query_params.get("modelo")
@@ -112,7 +112,7 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
 
         equipo = obtener_equipo_por_id(pk)
 
-        qr = equipo.codigo.qr
+        qr = equipo.codigo_qr
 
         return Response({
             "equipo":equipo.id,

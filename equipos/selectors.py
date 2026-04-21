@@ -24,7 +24,7 @@ def buscar_equipo(nombre=None, serie=None, marca=None, modelo=None, ubicacion=No
         queryset = queryset.filter(marca__nombre__icontains=marca)
 
     if modelo: 
-        queryset = queryset.filter(modelo__nnombre__icontains=modelo)
+        queryset = queryset.filter(modelo__nombre__icontains=modelo)
 
     if ubicacion:
         queryset = queryset.filter(ubicacion__id=ubicacion)
