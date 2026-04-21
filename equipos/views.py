@@ -9,7 +9,6 @@ from .serializers import EquipoBiomedicoSerializer,ArchivoAdjuntoSerializer
 from .selectors import (
     obtener_equipos,
     obtener_equipo_por_id,
-    buscar_equipo
 )
 
 from .services import (
@@ -18,26 +17,25 @@ from .services import (
     eliminar_equipo
 )
 
+from .models import (
+    Marca,
+    Modelo,
+    Fabricante,
+    TipoTecnologia,
+    Ubicacion
+)
+
 class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
+
+    serializer_class = EquipoBiomedicoSerializer
 
     def list(self,request):
 
-        nombre = request.query_params.get("nombre")
-        serie = request.query_params.get("serie")
-        marca = request.query_params.get("marca")
-        modelo = request.query_params.get("modelo")
-        ubicacion = request.query_params.get("ubicacion")
-
-        equipos = buscar_equipo(
-            nombre=nombre,
-            serie=serie,
-            marca=marca,
-            modelo=modelo,
-            ubicacion=ubicacion
-        )
+        equipos = obtener_equipos()
 
         serializer = EquipoBiomedicoSerializer(equipos,many=True)
 
+        return Response(serializer.data)
     
     def retrieve(self,request,pk=None):
 
@@ -47,9 +45,73 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
     
+
+    def parse_checkbox(data,opciones):
+        return {op:bool(data.get(op,False)) for op in opciones}
+    
     def create(self,request):
 
-        serializer = EquipoBiomedicoSerializer(data=request.data)
+        data = request.data.copy()
+
+
+        nueva_marca = request.data.get("nuevaMarca")
+        if nueva_marca:
+            marca = Marca.objects.create(nombre=nueva_marca)
+            data["marca"] = marca.id
+
+        nuevo_modelo = request.data.get("nuevoModelo")
+        if nuevo_modelo:
+            modelo = Modelo.objects.create(nombre=nuevo_modelo)
+            data["modelo"] = modelo.id
+            
+        nueva_tecnologia = request.data.get("nuevaTecnologia")
+        if nueva_tecnologia:
+            tecnologia = TipoTecnologia.objects.create(nombre=nueva_tecnologia)
+            data["tipoTecnologia"] = tecnologia.id
+            
+        nuevo_fabricante = request.data.get("nuevoFabricante")
+        if nuevo_fabricante:
+            fabricante = Fabricante.objects.create(nombre=nuevo_fabricante)
+            data["fabricante"] = fabricante.id
+
+        nueva_ubicacion = request.data.get("nuevaUbicacion")
+        if nueva_ubicacion:
+            ubicacion = Ubicacion.objects.create(
+                sede="pabon",
+                departamento="narino",
+                ciudad="pasto",
+                area="uci_6",
+                detalle=data["nuevaUbicacion"]
+            )
+            data["ubicacion"] = ubicacion.id
+
+        nuevo_equipo = request.data.get("nuevoEquipo")
+        if nuevo_equipo:
+            data["nombre"] = nuevo_equipo
+
+        data["estado_equipo"] = {
+            "bueno":bool(data.get("estado_bueno")),
+            "regular":bool(data.get("estado_regular")),
+            "malo":bool(data.get("estado_malo")),
+            "desarmado":bool(data.get("estado_desarmado")),
+        }
+
+        data["tipo_mantenimiento"] = {
+            "preventivo":bool(data.get("mant_preventivo")),
+            "correctivo":bool(data.get("mant_correctivo")),
+            "instalacion":bool(data.get("mant_instalacion")),
+            "desmontaje":bool(data.get("mant_desmontaje"))
+        }
+
+        data["fallas"] = {
+            "depreciacion":bool(data.get("falla_depreciacion")),
+            "mala_operacion":bool(data.get("falla_mala_operacion")),
+            "mal_instalado":bool(data.get("falla_mal_instalado")),
+            "accesorios":bool(data.get("falla_accesorios")),
+            "sin_fallas":bool(data.get("falla_sin_fallas"))
+        }
+
+        serializer = EquipoBiomedicoSerializer(data=data)
 
         if serializer.is_valid():
 
@@ -59,6 +121,9 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
                 EquipoBiomedicoSerializer(equipo).data,
                 status=status.HTTP_201_CREATED
             )
+        
+
+        print(serializer.errors)
         
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
     
@@ -91,6 +156,7 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
         eliminar_equipo(equipo)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
     
     @action(detail=True,methods=["post"])
     def generar_qr(self,request,pk=None):

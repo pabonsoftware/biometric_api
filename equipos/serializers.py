@@ -49,18 +49,14 @@ class EquipoBiomedicoSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    marca_nombre = serializers.CharField(source="marca.nombre",read_only=True)
+    modelo_nombre = serializers.CharField(source="modelo.nombre",read_only=True)
+    fabricante_nombre = serializers.CharField(source="fabricante.nombre",read_only=True)
+    tecnologia_nombre = serializers.CharField(source="tipoTecnologia.nombre",read_only=True)
+    ubicacion_nombre = serializers.CharField(source="ubicacion.detalle",read_only=True)
+
     class Meta:
 
-        fields = [
-            "idEquipo",
-            "nombre",
-            "marca",
-            "modelo",
-            "fabricante",
-            "tipoTecnologia",
-            "serie",
-            "ubicacion",
-            "fechaRegistro",
-            "codigo_qr",
-            "archivos"
-        ]
+        model = EquipoBiomedico
+
+        fields = '__all__'

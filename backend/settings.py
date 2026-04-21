@@ -32,7 +32,7 @@ BASE_URL = os.environ.get('BASE_URL','http://127.0.0.1:8000')
 
 FRONTEND_URL = os.environ.get('FRONTEND_URL','http://localhost:3000')
 
-ALLOWED_HOSTS = [ os.environ.get('DJANGO_ALLOWED_HOSTS',"*").split(',')]
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS',"*").split(',')
 
 
 # Application definition
@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'equipos',
 
     'corsheaders',
-    'djangofilters',
+    'django_filters',
 
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -182,6 +183,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
     "http://54.243.135.49",
     "http://54.243.135.49:3000"
 ]

@@ -139,9 +139,39 @@ class TipoTecnologia(models.Model):
     def __str__(self):
         return self.get_nombre_display()
     
+class Estado(models.Model):
+
+    estado = models.JSONField(
+        blank=True,
+        null=True
+    )
+
+class TipoMantenimiento(models.Model):
+
+    tipo_mantenimiento = models.JSONField(
+        blank=True,
+        null=True
+    )
+
+    
 class EquipoBiomedico(models.Model):
 
     nombre = models.CharField(max_length=100)
+
+    fallas = models.JSONField(
+        blank=True,
+        null=True
+    )
+
+    tipo_mantenimiento = models.JSONField(
+        TipoMantenimiento,
+        null=True
+    )
+
+    estado_equipo = models.JSONField(
+        Estado,
+        null=True
+    )
 
     marca = models.ForeignKey(
         Marca,
@@ -171,6 +201,14 @@ class EquipoBiomedico(models.Model):
         max_length=50,
         unique=True,
         help_text="Número de serie del equipo biomédico"
+    )
+
+    placa = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text='Número de inventario interno del hospital'
     )
 
     ubicacion = models.ForeignKey(
