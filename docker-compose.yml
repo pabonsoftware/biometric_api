@@ -1,9 +1,8 @@
-version: "3"
-
 services:
   backend:
     build: .
     container_name: backend_biomedico
+
     ports:
       - "8000:8000"
 
@@ -14,7 +13,3 @@ services:
       - .env.production
 
     restart: always
-
-
-
-
