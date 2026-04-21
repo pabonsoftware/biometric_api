@@ -191,6 +191,8 @@ class CodigoQR(models.Model):
         related_name='codigo_qr'
     )
 
+    codigo = models.ImageField(upload_to='qr_equipos/')
+
     fechaGeneracion = models.DateField(auto_now_add=True)
 
     def generarCodigo(self):
