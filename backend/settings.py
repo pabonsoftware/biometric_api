@@ -34,6 +34,7 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL','http://localhost:3000')
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS',"*").split(',')
 
+AUTH_USER_MODEL = "usuarios.Usuario"
 
 # Application definition
 
@@ -46,6 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'equipos',
+    'mantenimientos',
+    'usuarios',
 
     'corsheaders',
     'django_filters',
