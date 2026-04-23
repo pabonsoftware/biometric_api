@@ -28,34 +28,23 @@ def crear_mantenimiento(data):
 
     return mantenimiento
 
-
 def actualizar_mantenimiento(mantenimiento,data):
 
     for key,value in data.items():
+
         setattr(mantenimiento,key,value)
 
     mantenimiento.save()
 
-    mensaje = f"El mantenimiento del equipo {mantenimiento.equipo.nombre} ha sido actualizado"
+    mensaje = f"El mensaje para el equipo {mantenimiento.equipo.nombre} ha sido actualizado"
 
-    destinatario = mantenimiento.responsable.pygame.sprite.collide_rect_ratio()
+    destinatario = mantenimiento.responsable.correo 
 
     if not _notificacion_existente(mensaje,destinatario):
         _crear_notificacion(mensaje,destinatario)
         _enviar_correo(destinatario,mensaje)
 
     return mantenimiento
-
-def eliminar_mantenimiento(mantenimiento):
-
-    equipo = mantenimiento.equipo
-    responsable = mantenimiento.responsable
-
-    mensaje = f"El mantenimiento para el equipo {equipo.nombre} ha sido eliminado"
-
-    if not _notificacion_existente(mensaje,responsable.correo):
-        _crear_notificacion(mensaje,responsable.correo)
-        _enviar_correo(responsable.correo,mensaje)
 
 def supervisar_mantenimiento(mantenimiento):
 

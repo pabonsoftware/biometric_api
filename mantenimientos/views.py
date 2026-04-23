@@ -18,21 +18,22 @@ from .selectors import (
     obtener_mantenimiento_por_id,
     obtener_ordenes,
     obtener_programaciones,
-    obtener_notificaciones,
     obtener_reportes,
-    obtener_reporte_por_id
+    obtener_reporte_por_id,
+    obtener_notificaciones
 )
 
 from .services import (
     crear_mantenimiento,
     actualizar_mantenimiento,
-    eliminar_mantenimiento,
     supervisar_mantenimiento,
     generar_reporte_general
 )
 
 from .models import (
     CertificadoMetrologico,
+    ProgramacionMantenimiento,
+    OrdenServicio
 )
 
 from .filters import (
@@ -91,19 +92,6 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
     
-
-    def destroy(self,request,pk=None):
-
-        mantenimiento = obtener_mantenimiento_por_id(pk)
-
-        eliminar_mantenimiento(mantenimiento)
-
-        return Response(
-            {
-                "message":"Mantenimiento eliminado correctamente"
-            }
-        )
-    
     @action(detail=True,methods=["get"])
     def supervisar(self,request,pk=None):
 
@@ -142,6 +130,35 @@ class OrdenServicioViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return obtener_ordenes()
     
+    def create(self,request):
+
+        serializer = self.get_serializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        orden = serializer.save()
+
+        return Response(
+            OrdenServicioSerializer(orden).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    @action(detail=True,methods=["patch"])
+    def cerrar(self,request,pk=None):
+
+        orden = OrdenServicio.objects.get(pk=pk)
+
+        orden.estado = "ejecutado"
+
+        orden.save()
+
+        serializer = self.get_serializer(orden)
+
+        return Response({
+            "message":"Orden cerrada correctamente",
+            "data":serializer.data
+        })
+    
  
 class ProgramacionMantenimientoViewSet(viewsets.ModelViewSet):
 
@@ -171,6 +188,16 @@ class ProgramacionMantenimientoViewSet(viewsets.ModelViewSet):
             ProgramacionMantenimientoSerializer(programacion).data,
             status=status.HTTP_201_CREATED,
         )
+    
+    def destroy(self,request,pk=None):
+
+        try:
+            programacion = ProgramacionMantenimiento.objects.get(pk=pk)
+        except ProgramacionMantenimiento.DoesNotExist:
+            return Response(
+                {"message":"Programación no encontrada"},
+                status=status.HTTP_204_NO_CONTENT
+            )
 
 class CertificadoMetrologicoViewSet(viewsets.ModelViewSet):
 
@@ -178,7 +205,26 @@ class CertificadoMetrologicoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return CertificadoMetrologico.objects.all()
-   
+    
+    @action(detail=True,methods=["post"])
+    def generar_certificado(self,request,pk=None):
+
+        mantenimiento = request.data.get("mantenimiento")
+        responsable = request.data.get("responsable")
+        numero = request.data.get("numeroCertificado")
+
+        certificado = CertificadoMetrologico.objects.create(
+            numeroCertificado = numero,
+            responsable_id=responsable,
+            mantenimiento_id=mantenimiento
+        )  
+
+        serializer = self.get_serializer(certificado)
+
+        return Response({
+            "message":"Certificado generado correctamente",
+            "data":serializer.data
+        },status=status.HTTP_201_CREATED)
 
 class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
 
@@ -188,7 +234,7 @@ class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
         return obtener_notificaciones()
 
 
-class ReporteGeneralViewSet(viewsets.ModelViewSet):
+class ReporteViewSet(viewsets.ModelViewSet):
 
     serializer_class = ReporteSerializer
 

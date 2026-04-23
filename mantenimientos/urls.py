@@ -7,7 +7,7 @@ from .views import (
     NotificacionViewSet,
     OrdenServicioViewSet,
     CertificadoMetrologicoViewSet,
-    ReporteGeneralViewSet
+    ReporteViewSet
 )
 
 router = DefaultRouter()
@@ -17,7 +17,7 @@ router.register(r'programaciones',ProgramacionMantenimientoViewSet,basename='pro
 router.register(r'ordenes-servicio',OrdenServicioViewSet,basename='ordenes')
 router.register(r'certificados',CertificadoMetrologicoViewSet,basename='certificados')
 router.register(r'notificaciones',NotificacionViewSet,basename='notificaciones')
-router.register(r'reportes',ReporteGeneralViewSet, basename='reportes')
+router.register(r'reportes',ReporteViewSet, basename='reportes')
 
 urlpatterns = [
     path('',include(router.urls)),

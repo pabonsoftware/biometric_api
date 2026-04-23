@@ -15,7 +15,8 @@ class Mantenimiento(models.Model):
     ]
 
     TIPO_CHOICES = [
-        ('mantenimiento','MANTENIMIENTO'),
+        ('preventivo','PREVENTIVO'),
+        ('correctivo','CORRECTIVO'),
         ('calibracion','CALIBRACION'),
         ('falla','FALLA'),
         ('sistema','SISTEMA')
@@ -68,7 +69,7 @@ class ProgramacionMantenimiento(models.Model):
         related_name='programaciones'
     )
 
-    frecuenciaMantenimiento = models.ImageField()
+    frecuenciaMantenimiento = models.IntegerField()
 
     frecuenciaCalibracion = models.IntegerField()
 
@@ -166,7 +167,8 @@ class CertificadoMetrologico(models.Model):
 class Reporte(models.Model):
 
     TIPO_CHOICES = [
-        ('mantenimiento','MANTENIMIENTO'),
+        ('correctivo','CORRECTIVO'),
+        ('preventivo','PREVENTIVO'),
         ('calibracion','CALIBRACION'),
         ('falla','FALLA'),
         ('sistema','SISTEMA')

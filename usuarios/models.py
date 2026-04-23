@@ -1,6 +1,40 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 
+class UsuarioManager(BaseUserManager):
+
+    def create_user(self,correo,username,nombre,password=None, **extra_fields):
+
+        if not correo:
+            raise ValueError("El usuario debe tener un correo")
+        
+        correo = self.normalize_email(correo)
+
+        user = self.model(
+            correo=correo,
+            username=username,
+            nombre=nombre,
+            **extra_fields
+        )
+
+        user.set_password(password)
+        user.save(using=self._db)
+
+        return user 
+    
+    def create_superuser(self,correo,username,nombre,password=None, **extra_fields):
+
+        extra_fields.setdefault("is_staff",True)
+        extra_fields.setdefault("is_superuser",True)
+
+        return self.create_user(
+            correo,
+            username,
+            nombre,
+            password,
+            **extra_fields
+        )
+    
 class Usuario(AbstractUser):
 
     ROLES_CHOICES = [
@@ -15,8 +49,6 @@ class Usuario(AbstractUser):
         ("activo","ACTIVO"),
         ("inactivo","INACTIVO")
     ]
-
-    username = None 
 
     nombre = models.CharField(max_length=100)
 
@@ -34,7 +66,9 @@ class Usuario(AbstractUser):
 
     USERNAME_FIELD = "correo"
 
-    REQUIRED_FIELDS = ["nombre"]
+    REQUIRED_FIELDS = ["username","nombre"]
+
+    objects = UsuarioManager()
 
     def __str__(self):
         return f"{self.nombre}- {self.rol}"
