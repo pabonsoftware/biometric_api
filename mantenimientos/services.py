@@ -88,7 +88,7 @@ def generar_reporte_general():
     ).count()
 
     ordenes_ejecutadas = OrdenServicio.objects.filter(
-        estado="ejecutado"
+        estado="ejecutada"
     ).count()
 
     return {

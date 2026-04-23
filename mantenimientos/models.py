@@ -28,6 +28,12 @@ class Mantenimiento(models.Model):
         related_name='mantenimientos'
     )
 
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='pendiente'
+    )
+
     tipo = models.CharField(
         max_length=50,
         choices=TIPO_CHOICES,

@@ -95,11 +95,12 @@ class ReporteSerializer(serializers.ModelSerializer):
     idReporte = serializers.IntegerField(source="id",read_only=True)
 
     equipo = serializers.PrimaryKeyRelatedField(
-        queryset=EquipoBiomedico.objects.all()
+        source="mantenimiento.equipo.id",
+        read_only=True
     )
 
     equipoNombre = serializers.CharField(
-        source="equipo.nombre",
+        source="mantenimiento.equipo.id",
         read_only=True
     )
 

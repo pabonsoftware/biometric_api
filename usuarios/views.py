@@ -10,6 +10,7 @@ from .models import Usuario
 from .serializers import (
     LoginSerializer,
     RegisterSerializer,
+    UsuarioSerializer
 )
 
 from .services import (
@@ -18,6 +19,7 @@ from .services import (
 )
 
 class UsuarioViewSet(viewsets.ModelViewSet):
+    serializer_class = UsuarioSerializer
 
     def get_queryset(self):
         return Usuario.objects.all()

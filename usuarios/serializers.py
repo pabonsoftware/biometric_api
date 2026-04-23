@@ -5,6 +5,8 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
 
+        model = Usuario
+        
         fields = '__all__'
 
 class RegisterSerializer(serializers.ModelSerializer):
