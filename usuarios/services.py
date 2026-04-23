@@ -37,7 +37,7 @@ def enviar_alerta_correo(destinatario, mensaje):
 
     try:
         send_mail(
-            "Alerta de mantenimiento biomédico",
+            "Notificacion de email",
             mensaje,
             settings.EMAIL_HOST_USER,
             [destinatario],

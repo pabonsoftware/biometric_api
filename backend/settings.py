@@ -14,7 +14,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(".env.local")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,10 +38,17 @@ AUTH_USER_MODEL = "usuarios.Usuario"
 
 # Configuration mail
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
 EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST')
+
 EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT',587))
+
 EMAIL_USE_TLS = True
+
+EMAIL_USE_SSL = False
+
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_HOST_USER')
+
 EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_HOST_PASSWORD')
 
 # Application definition
