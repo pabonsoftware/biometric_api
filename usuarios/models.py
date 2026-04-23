@@ -72,3 +72,12 @@ class Usuario(AbstractUser):
 
     def __str__(self):
         return f"{self.nombre}- {self.rol}"
+    
+class PasswordResetToken(models.Model):
+
+    usuario = models.ForeignKey(Usuario,on_delete=models.CASCADE)
+    token = models.CharField(max_length=255)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.usuario.correo} - {self.token}"

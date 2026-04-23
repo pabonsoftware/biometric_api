@@ -45,7 +45,7 @@ class RecoveryPasswordSerializer(serializers.Serializer):
 
     correo = serializers.EmailField()
 
-class ResetPassword(serializers.Serializer):
+class ResetPasswordSerializer(serializers.Serializer):
 
     token = serializers.CharField()
 
