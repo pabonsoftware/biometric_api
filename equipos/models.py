@@ -6,38 +6,75 @@ from django.core.files import File
 from django.conf import settings
 
 
+class Marca(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class Modelo(models.Model):
+    nombre = models.CharField(max_length=100)
+    marca = models.ForeignKey(
+        Marca,
+        on_delete=models.CASCADE,
+        related_name='modelos'
+    )
+
+    class Meta:
+        unique_together = ('nombre', 'marca')
+
+    def __str__(self):
+        return f"{self.nombre} ({self.marca.nombre})"
+
+
+class TipoTecnologia(models.TextChoices):
+    MONITOREO = 'monitoreo', 'Monitoreo'
+    IMAGENOLOGIA = 'imagenologia', 'Imagenología'
+    SOPORTE_VITAL = 'soporte_vital', 'Soporte vital'
+    DIAGNOSTICO = 'diagnostico', 'Diagnóstico'
+    TERAPEUTICO = 'terapeutico', 'Terapéutico'
+
+
+class EstadoEquipo(models.TextChoices):
+    BUENO = 'bueno', 'Bueno'
+    REGULAR = 'regular', 'Regular'
+    MALO = 'malo', 'Malo'
+    DESARMADO = 'desarmado', 'Desarmado'
+
+
 class Ubicacion(models.Model):
 
     SEDE_CHOICES = [
-        ("pabon","Clínica Cardiovascular Pabón"),
-        ("centro_cuidados","Centro de Cuidados Cardioneurovascular Pabón")
+        ("pabon", "Clínica Cardiovascular Pabón"),
+        ("centro_cuidados", "Centro de Cuidados Cardioneurovascular Pabón")
     ]
 
     DEPARTAMENTO_CHOICES = [
-        ("narino","Nariño"),
-        ("cundinamarca","Cundinamarca"),
-        ("valle","Valle del Cauca")
+        ("narino", "Nariño"),
+        ("cundinamarca", "Cundinamarca"),
+        ("valle", "Valle del Cauca")
     ]
 
     CIUDAD_CHOICES = [
-        ("pasto","San Juan de Pasto"),
-        ("bogota","Bogotá"),
-        ("cali","Cali")
+        ("pasto", "San Juan de Pasto"),
+        ("bogota", "Bogotá"),
+        ("cali", "Cali")
     ]
 
     AREA_CHOICES = [
-        ("hemodinamia","Hemodinamia y cirugía cardiovascular"),
-        ("hosp_adulto","Hospitalización adulto"),
-        ("uci_6","UCI 6 piso"),
-        ("quirófano","Quirófano"),
-        ("hosp_pediatría","UCI pedriática"),
-        ("uci_coro","UCI coro"),
-        ("hosp_4_adulto","Hospitalización de 4 piso adulto"),
-        ("uci_neo","UCI neo"),
-        ("consulta_prioritaria","Consulta prioritaria"),
-        ("farmacia","Farmacia"),
-        ("imagenología","Imagenología"),
-        ("laboratorio","Laboratorio clínico")
+        ("hemodinamia", "Hemodinamia y cirugía cardiovascular"),
+        ("hosp_adulto", "Hospitalización adulto"),
+        ("uci_6", "UCI 6 piso"),
+        ("quirófano", "Quirófano"),
+        ("hosp_pediatría", "UCI pedriática"),
+        ("uci_coro", "UCI coro"),
+        ("hosp_4_adulto", "Hospitalización de 4 piso adulto"),
+        ("uci_neo", "UCI neo"),
+        ("consulta_prioritaria", "Consulta prioritaria"),
+        ("farmacia", "Farmacia"),
+        ("imagenología", "Imagenología"),
+        ("laboratorio", "Laboratorio clínico")
     ]
 
     sede = models.CharField(
@@ -64,137 +101,32 @@ class Ubicacion(models.Model):
 
     def __str__(self):
         return f"{self.get_sede_display()} - {self.get_area_display()} - {self.detalle}"
-    
 
-class Marca(models.Model):
 
-    MARCA_CHOICES = [
-        ("philips","Philips"),
-        ("ge","GE Healthcare"),
-        ("siemnens","Siemens"),
-        ("mindray","Mindray"),
-        ("drager","Drager")
-    ]
-
-    nombre = models.CharField(
-        max_length=50,
-        choices=MARCA_CHOICES
-    )
-
-    def __str__(self):
-        return self.get_nombre_display()
-    
-class Modelo(models.Model):
-
-    MODELO_CHOICES = [
-        ("mx800","IntelliVue MX800"),
-        ("b450","B450 Monitor"),
-        ("acuity","Acuity LT"),
-        ("evita_v300","Evita V300"),
-        ("resona7","Resona 7")
-    ]
-
-    nombre = models.CharField(
-        max_length=100,
-        choices=MODELO_CHOICES
-    )
-
-    def __str__(self):
-        return self.get_nombre_display()
-    
-class Fabricante(models.Model):
-
-    FABRICANTE_CHOICES = [
-        ("philips","Philips Medical System"),
-        ("ge","GE HealthCare"),
-        ("siemens","Siemens Healthineers"),
-        ("mindray","Mindray Bio-Medical Electronics"),
-        ("drager","Dragerwerk AG"),
-    ]
-
-    nombre = models.CharField(
-        max_length=100,
-        choices=FABRICANTE_CHOICES
-    )
-
-    def __str__(self):
-        return self.get_nombre_display()
-    
-
-class TipoTecnologia(models.Model):
-
-    TECNOLOGIA_CHOICES = [
-        ("monitoreo","Monitoreo"),
-        ("imagenologia","Imagenología"),
-        ("soporte_vital","Soporte vital"),
-        ("diagnostico","Diagnóstico"),
-        ("terapeutico","Terapéutico"),
-    ]
-
-    nombre = models.CharField(
-        max_length=50,
-        choices=TECNOLOGIA_CHOICES
-    )
-
-    def __str__(self):
-        return self.get_nombre_display()
-    
-class Estado(models.Model):
-
-    estado = models.JSONField(
-        blank=True,
-        null=True
-    )
-
-class TipoMantenimiento(models.Model):
-
-    tipo_mantenimiento = models.JSONField(
-        blank=True,
-        null=True
-    )
-
-    
 class EquipoBiomedico(models.Model):
-
     nombre = models.CharField(max_length=100)
-
-    fallas = models.JSONField(
-        blank=True,
-        null=True
-    )
-
-    tipo_mantenimiento = models.JSONField(
-        TipoMantenimiento,
-        null=True
-    )
-
-    estado_equipo = models.JSONField(
-        Estado,
-        null=True
-    )
 
     marca = models.ForeignKey(
         Marca,
-        on_delete=models.SET_NULL,
-        null=True
+        on_delete=models.PROTECT,
+        related_name='equipos'
     )
 
     modelo = models.ForeignKey(
         Modelo,
-        on_delete=models.SET_NULL,
-        null=True
+        on_delete=models.PROTECT,
+        related_name='equipos'
     )
 
-    fabricante = models.ForeignKey(
-        Fabricante,
-        on_delete=models.SET_NULL,
-        null=True
+    tipo_tecnologia = models.CharField(
+        max_length=20,
+        choices=TipoTecnologia.choices
     )
 
-    tipoTecnologia = models.ForeignKey(
-        TipoTecnologia,
-        on_delete=models.SET_NULL,
-        null=True
+    estado_equipo = models.CharField(
+        max_length=20,
+        choices=EstadoEquipo.choices,
+        default=EstadoEquipo.BUENO
     )
 
     serie = models.CharField(
@@ -219,8 +151,41 @@ class EquipoBiomedico(models.Model):
     fechaRegistro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.id} - {self.nombre}"
-    
+        return f"{self.id} - {self.nombre} ({self.marca.nombre})"
+
+
+class TipoFalla(models.TextChoices):
+    DEPRECIACION = 'depreciacion', 'Depreciación'
+    MALA_OPERACION = 'mala_operacion', 'Mala operación'
+    MAL_INSTALADO = 'mal_instalado', 'Mal instalado'
+    ACCESORIOS = 'accesorios', 'Accesorios'
+    SIN_FALLAS = 'sin_fallas', 'Sin fallas'
+
+
+class Falla(models.Model):
+    equipo = models.ForeignKey(
+        EquipoBiomedico,
+        on_delete=models.CASCADE,
+        related_name='fallas'
+    )
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=TipoFalla.choices
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Descripción opcional de la falla"
+    )
+
+    fechaRegistro = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - Equipo {self.equipo.id}"
+
+
 class CodigoQR(models.Model):
 
     equipo = models.OneToOneField(
@@ -241,24 +206,23 @@ class CodigoQR(models.Model):
 
         buffer = BytesIO()
 
-        qr.save(buffer,format="PNG")
+        qr.save(buffer, format="PNG")
 
         nombre_archivo = f"equipo_{self.equipo.id}.png"
 
-        self.codigo.save(nombre_archivo,File(buffer),save=False)
+        self.codigo.save(nombre_archivo, File(buffer), save=False)
 
-    
-    def save(self,*args,**kwargs):
+    def save(self, *args, **kwargs):
 
         if not self.codigo:
             self.generarCodigo()
 
-        super().save(*args,**kwargs)
+        super().save(*args, **kwargs)
 
     def __str__(self):
 
         return f"QR Equipo {self.equipo.id}"
-    
+
 
 class ArchivoAdjunto(models.Model):
 
