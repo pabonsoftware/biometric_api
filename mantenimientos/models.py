@@ -1,23 +1,9 @@
 from django.db import models
 
 from datetime import date,timedelta
-from django.utils import timezone
 
-from equipos.models import EquipoBiomedico, ArchivoAdjunto
+from equipos.models import EquipoBiomedico
 from usuarios.models import Usuario
-
-class Prioridad(models.TextChoices):
-    BAJA = "baja","Baja"
-    MEDIA = "media","Media"
-    ALTA = "alta","Alta",
-    CRITICA = "critica","Crítica"
-
-class EstadoMantenimiento(models.TextChoices):
-    PENDIENTE = "pendiente","Pendiente"
-    APROBADO = "aprobado","Aprobado"
-    EN_PROCESO = "en_proceso","En proceso"
-    FINALIZADO = "finalizado","Finalizado"
-    ATRASADO = "atrasado","Atrasado"
 
 class Mantenimiento(models.Model):
 
@@ -30,12 +16,18 @@ class Mantenimiento(models.Model):
         ('ejecutado','EJECUTADO')
     ]
 
-    descripcion = models.TextField()
+    TIPO_CHOICES = [
+        ('preventivo','PREVENTIVO'),
+        ('correctivo','CORRECTIVO'),
+        ('calibracion','CALIBRACION'),
+        ('falla','FALLA'),
+        ('sistema','SISTEMA')
+    ]
 
-    prioridad = models.CharField(
-        max_length=20,
-        choices=Prioridad.choices,
-        default=Prioridad.MEDIA
+    equipo = models.ForeignKey(
+        EquipoBiomedico,
+        on_delete=models.CASCADE,
+        related_name='mantenimientos'
     )
 
     diagnostico = models.TextField(
@@ -45,13 +37,15 @@ class Mantenimiento(models.Model):
 
     estado = models.CharField(
         max_length=20,
-        choices=EstadoMantenimiento.choices,
-        default=EstadoMantenimiento.PENDIENTE
+        choices=ESTADO_CHOICES,
+        default='pendiente'
     )
 
-    fecha_programada = models.DateTimeField()
-    fecha_inicio = models.DateTimeField(null=True,blank=True)
-    fecha_fin = models.DateTimeField(null=True,blank=True)
+    tipo = models.CharField(
+        max_length=50,
+        choices=TIPO_CHOICES,
+        default='mantenimiento'
+    )
 
     fecha_inicio = models.DateTimeField(
         null=True,
@@ -65,67 +59,18 @@ class Mantenimiento(models.Model):
         help_text="Fecha y hora de finalización del mantenimiento"
     )
 
-    def esta_atrasado(self):
-        return self.fecha_limite < timezone.now() and self.estado != "finalizado"
-    
-    def __str__(self):
-        return f"{self.equipo.nombre} - {self.estado}"
-    
-class MantenimientoHistorial(models.Model):
-
-    mantenimiento = models.ForeignKey(
-        Mantenimiento,
+    responsable = models.ForeignKey(
+        Usuario,
         on_delete=models.CASCADE,
-        related_name='historial'
+        related_name='mantenimientos_responsable'
     )
 
-    usuario = models.ForeignKey(
-        "usuarios.Usuario",
-        on_delete=models.SET_NULL,
-        null=True
-    )
-
-    acccion = models.CharField(max_length=100)
-
-    cambios = models.JSONField(default=dict)
-
-    fecha = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.accion} - {self.fecha}"
-    
-class EventoMantenimiento(models.Model):
-
-    TIPO_EVENTO = [
-        ("creado","Creado"),
-        ("actualizado","Actualizado"),
-        ("aprobado","Aprobado"),
-        ("finalizado","Finalizado")
-    ]
-
-    mantenimiento = models.ForeignKey(
-        Mantenimiento,
-        on_delete=models.CASCADE
-    )
-
-    tipo = models.CharField(max_length=50,choices=TIPO_EVENTO)
-
-    descripcion = models.TextField()
-
-    usuario = models.ForeignKey(
-        "usuarios.Usuario",
-        on_delete=models.SET_NULL,
-        null=True
-    )
-
-    fecha = models.DateTimeField(auto_now_add=True)
-
-class CheckListMantenimiento(models.Model):
-
-    mantenimiento = models.ForeignKey(
-        Mantenimiento,
+    aprobado_por = models.ForeignKey(
+        Usuario,
         on_delete=models.CASCADE,
-        related_name='checklist'
+        null=True,
+        blank=True,
+        related_name='mantenimientos_aprobados'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -151,20 +96,6 @@ class CheckListMantenimiento(models.Model):
     def __str__(self):
         return f"{self.equipo.nombre} - {self.get_estado_display()}"
     
-class EvidenciaMantenimiento(models.Model):
-
-    mantenimiento = models.ForeignKey(
-        Mantenimiento,
-        on_delete=models.CASCADE,
-        related_name='evidencias'
-    )
-
-    archivo = models.FileField(upload_to='mantenimientos/')
-
-    descripcion = models.CharField(max_length=255)
-
-    fecha = models.DateTimeField(auto_now_add=True)
-
 class ProgramacionMantenimiento(models.Model):
 
     UNIDAD_FRECUENCIA = [
@@ -224,9 +155,6 @@ class ProgramacionMantenimiento(models.Model):
 
         self.save()
 
-    def esta_vencido(self):
-        return self.proximoMantenimiento and self.proximoMantenimiento < date.today()
-
     def __str__(self):
         return f"{self.equipo.nombre} - Mant: {self.frecuencia_mantenimiento}"
     
@@ -236,8 +164,8 @@ class OrdenServicio(models.Model):
     ESTADO_CHOICES = [
         ('aprobada','APROBADA'),
         ('pendiente','PENDIENTE'),
-        ('finalizada','FINALIZADA'),
-        ('cancelada','CANCELADA')
+        ('supervisada','SUPERVISADA'),
+        ('ejecutada','EJECUTADA')
     ]
 
     mantenimiento = models.ForeignKey(
@@ -308,6 +236,7 @@ class Reporte(models.Model):
         ('preventivo','PREVENTIVO'),
         ('calibracion','CALIBRACION'),
         ('falla','FALLA'),
+        ('sistema','SISTEMA')
     ]
 
     mantenimiento = models.ForeignKey(
@@ -315,8 +244,6 @@ class Reporte(models.Model):
         on_delete=models.CASCADE,
         related_name='reportes'
     )
-
-    autor = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True)
 
     nombre = models.CharField(max_length=100)
 
@@ -329,7 +256,10 @@ class Reporte(models.Model):
         choices=TIPO_CHOICES
     )
 
-    archivo = models.FileField(upload_to='reportes/',null=True,blank=True)
+    falla = models.JSONField(
+        null=True,
+        blank=True
+    )
 
     archivo = models.FileField(
         upload_to='reportes/',
@@ -389,4 +319,4 @@ class Notificacion(models.Model):
         verbose_name_plural = "Notificaciones"
 
     def __str__(self):
-        return f"{self.nombre} - {self.tipo}"
+        return f"{self.tipo} - {self.estado}"

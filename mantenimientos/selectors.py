@@ -3,9 +3,9 @@ from .models import (
     ProgramacionMantenimiento,
     OrdenServicio,
     Reporte,
+    Notificacion
 )
 
-from notificaciones.models import Notificacion
 
 def obtener_mantenimientos():
 

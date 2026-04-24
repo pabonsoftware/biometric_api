@@ -12,6 +12,7 @@ from .models import (
     Mantenimiento,
     OrdenServicio,
     ProgramacionMantenimiento,
+    Notificacion
 )
 from equipos.models import EquipoBiomedico
 from usuarios.models import Usuario
@@ -27,7 +28,6 @@ from .exceptions import (
     ProgramacionNotFound,
 )
 
-from notificaciones.models import Notificacion
 from services.notifications.notificacion_service import notificar
 
 

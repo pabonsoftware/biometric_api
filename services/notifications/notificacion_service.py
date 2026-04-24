@@ -1,4 +1,4 @@
-from notificaciones.models import Notificacion
+from mantenimientos.models import Notificacion
 from services.email.tasks import send_email_task
 
 def notificar(usuario,asunto,mensaje,tipo="sistema"):

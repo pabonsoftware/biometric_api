@@ -5,12 +5,9 @@ from .models import (
     ProgramacionMantenimiento,
     CertificadoMetrologico,
     Reporte,
-    EstadoMantenimiento,
-    CheckListMantenimiento,
-    MantenimientoHistorial
+    Notificacion
 )
-
-from notificaciones.models import Notificacion 
+ 
 
 @admin.register(Mantenimiento)
 class MantenimientoAdmin(admin.ModelAdmin):

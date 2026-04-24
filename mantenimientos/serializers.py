@@ -12,12 +12,12 @@ from .models import (
     ProgramacionMantenimiento,
     OrdenServicio,
     CertificadoMetrologico,
-    Reporte
+    Reporte,
+    Notificacion
 )
 
 from equipos.models import EquipoBiomedico
 from usuarios.models import Usuario
-from notificaciones.models import Notificacion
 
 
 class MantenimientoCreateSerializer(serializers.Serializer):

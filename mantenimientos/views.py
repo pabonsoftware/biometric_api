@@ -18,7 +18,8 @@ from .serializers import (
     OrdenServicioSerializer,
     ProgramacionMantenimientoSerializer,
     ReporteSerializer,
-    ReporteWriteSerializer
+    ReporteWriteSerializer,
+    NotificacionSerializer
 )
 
 from .selectors import (
@@ -27,6 +28,7 @@ from .selectors import (
     obtener_programaciones,
     obtener_reportes,
     obtener_reporte_por_id,
+    obtener_notificaciones
 )
 
 from .services import (
