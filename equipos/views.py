@@ -4,12 +4,13 @@ from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import ProtectedError
 
-from .models import EquipoBiomedico, Marca, Modelo, Falla
+from .models import EquipoBiomedico, Marca, Modelo, Ubicacion, Falla
 from .serializers import (
     EquipoBiomedicoSerializer,
     EquipoBiomedicoWriteSerializer,
     MarcaSerializer,
     ModeloSerializer,
+    UbicacionSerializer,
     FallaSerializer,
     ArchivoAdjuntoSerializer,
     CodigoQRSerializer
@@ -23,6 +24,8 @@ from .selectors import (
     obtener_modelos,
     obtener_modelos_por_marca,
     obtener_modelo_por_id,
+    obtener_ubicaciones,
+    obtener_ubicacion_por_id,
     obtener_fallas_por_equipo,
 )
 from .services import (
@@ -35,6 +38,9 @@ from .services import (
     crear_modelo,
     actualizar_modelo,
     eliminar_modelo,
+    crear_ubicacion,
+    actualizar_ubicacion,
+    eliminar_ubicacion,
     crear_falla,
     eliminar_falla,
 )
@@ -106,6 +112,37 @@ class ModeloViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class UbicacionViewSet(viewsets.ModelViewSet):
+    serializer_class = UbicacionSerializer
+
+    def get_queryset(self):
+        return obtener_ubicaciones()
+
+    def create(self, request):
+        serializer = UbicacionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ubicacion = crear_ubicacion(serializer.validated_data)
+        return Response(UbicacionSerializer(ubicacion).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        ubicacion = obtener_ubicacion_por_id(pk)
+        serializer = UbicacionSerializer(ubicacion, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ubicacion = actualizar_ubicacion(ubicacion, serializer.validated_data)
+        return Response(UbicacionSerializer(ubicacion).data)
+
+    def destroy(self, request, pk=None):
+        ubicacion = obtener_ubicacion_por_id(pk)
+        try:
+            eliminar_ubicacion(ubicacion)
+        except ProtectedError:
+            return Response(
+                {"error": "No se puede eliminar esta ubicación porque tiene equipos asociados."},
+                status=status.HTTP_409_CONFLICT
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class FallaViewSet(viewsets.ModelViewSet):
     serializer_class = FallaSerializer
 
@@ -142,7 +179,6 @@ class EquipoBiomedicoViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def retrieve(self, request, pk=None):
-        breakpoint()
         equipo = obtener_equipo_por_id(pk)
         serializer = EquipoBiomedicoSerializer(equipo)
         return Response(serializer.data)

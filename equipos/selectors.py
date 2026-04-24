@@ -1,4 +1,4 @@
-from .models import EquipoBiomedico, Marca, Modelo, Falla
+from .models import EquipoBiomedico, Marca, Modelo, Falla, Ubicacion
 from django.shortcuts import get_object_or_404
 
 
@@ -32,3 +32,11 @@ def obtener_modelo_por_id(pk):
 
 def obtener_fallas_por_equipo(equipo_id):
     return Falla.objects.filter(equipo_id=equipo_id).order_by('-fechaRegistro')
+
+
+def obtener_ubicaciones():
+    return Ubicacion.objects.all().order_by('sede', 'area')
+
+
+def obtener_ubicacion_por_id(pk):
+    return Ubicacion.objects.get(pk=pk)

@@ -1,4 +1,4 @@
-from .models import EquipoBiomedico, Marca, Modelo, Falla
+from .models import EquipoBiomedico, Marca, Modelo, Falla, Ubicacion
 
 
 def crear_equipo(data):
@@ -53,3 +53,18 @@ def crear_falla(data):
 
 def eliminar_falla(falla):
     falla.delete()
+
+
+def crear_ubicacion(data):
+    return Ubicacion.objects.create(**data)
+
+
+def actualizar_ubicacion(ubicacion, data):
+    for key, value in data.items():
+        setattr(ubicacion, key, value)
+    ubicacion.save()
+    return ubicacion
+
+
+def eliminar_ubicacion(ubicacion):
+    ubicacion.delete()

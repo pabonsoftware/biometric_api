@@ -4,6 +4,7 @@ from .models import (
     EquipoBiomedico,
     Marca,
     Modelo,
+    Ubicacion,
     Falla,
     CodigoQR,
     ArchivoAdjunto,
@@ -45,6 +46,18 @@ class MarcaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Marca
         fields = ['id', 'nombre']
+
+
+class UbicacionSerializer(serializers.ModelSerializer):
+    sede_display = serializers.CharField(source='get_sede_display', read_only=True)
+    departamento_display = serializers.CharField(source='get_departamento_display', read_only=True)
+    ciudad_display = serializers.CharField(source='get_ciudad_display', read_only=True)
+    area_display = serializers.CharField(source='get_area_display', read_only=True)
+
+    class Meta:
+        model = Ubicacion
+        fields = ['id', 'sede', 'sede_display', 'departamento', 'departamento_display',
+                  'ciudad', 'ciudad_display', 'area', 'area_display', 'detalle']
 
 
 class ModeloSerializer(serializers.ModelSerializer):

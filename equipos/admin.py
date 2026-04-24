@@ -26,6 +26,13 @@ class EquipoBiomedicoAdmin(admin.ModelAdmin):
     raw_id_fields = ['marca', 'modelo', 'ubicacion']
 
 
+@admin.register(Ubicacion)
+class UbicacionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'sede', 'departamento', 'ciudad', 'area']
+    list_filter = ['sede', 'departamento', 'ciudad', 'area']
+    search_fields = ['detalle']
+
+
 @admin.register(Falla)
 class FallaAdmin(admin.ModelAdmin):
     list_display = ['id', 'equipo', 'tipo', 'fechaRegistro']
@@ -33,6 +40,5 @@ class FallaAdmin(admin.ModelAdmin):
     search_fields = ['equipo__nombre', 'descripcion']
 
 
-admin.site.register(Ubicacion)
 admin.site.register(CodigoQR)
 admin.site.register(ArchivoAdjunto)
