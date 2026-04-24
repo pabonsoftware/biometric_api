@@ -19,3 +19,13 @@ __pycache__/
 *.pyc
 
 **/__pycache__/
+
+# Documentation (auto-generated, local development notes)
+docs/
+*.md~
+
+# Test coverage reports
+htmlcov/
+.coverage
+.coverage.*
+*.cover

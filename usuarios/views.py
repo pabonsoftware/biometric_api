@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import RefreshToken
 from .utils.token import generar_token
 from django.utils import timezone
 from datetime import timedelta
@@ -81,12 +82,17 @@ class AuthViewSet(ViewSet):
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
-        login(request.user)
+        login(request, user)
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
 
         return Response({
             "message": "Login exitoso",
             "usuario": user.nombre,
-            "rol": user.rol
+            "rol": user.rol,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh)
         })
 
     @action(detail=False, methods=["post"], url_path="recovery_password")
