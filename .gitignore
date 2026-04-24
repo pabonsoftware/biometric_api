@@ -31,5 +31,3 @@ htmlcov/
 *.cover
 *.md
 
-/notificaciones/
-/services/
