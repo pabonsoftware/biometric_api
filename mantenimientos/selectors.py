@@ -5,6 +5,8 @@ from .models import (
     Reporte,
 )
 
+from notificaciones.models import Notificacion
+
 def obtener_mantenimientos():
 
     return Mantenimiento.objects.select_related("equipo","responsable")
@@ -45,3 +47,6 @@ def contar_reportes():
 
     return Reporte.objects.count()
 
+
+def obtener_notificaciones():
+    return Notificacion.objects.all()

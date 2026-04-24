@@ -16,7 +16,6 @@ from .serializers import (
     MantenimientoUpdateSerializer,
     CertificadoMetrologicoSerializer,
     OrdenServicioSerializer,
-    OrdenServicioWriteSerializer,
     ProgramacionMantenimientoSerializer,
     ReporteSerializer,
     ReporteWriteSerializer
@@ -24,7 +23,6 @@ from .serializers import (
 
 from .selectors import (
     obtener_mantenimientos,
-    obtener_mantenimiento_por_id,
     obtener_ordenes,
     obtener_programaciones,
     obtener_reportes,

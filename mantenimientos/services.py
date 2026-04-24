@@ -114,11 +114,13 @@ def crear_mantenimiento(
     mensaje = (
         f"Se ha creado un mantenimiento para el equipo {mantenimiento.equipo.nombre}"
     )
-    destinatario = mantenimiento.responsable.correo
 
-    if not _notificacion_existente(mensaje, destinatario):
-        _crear_notificacion(mensaje, destinatario)
-        _enviar_correo(destinatario, mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return mantenimiento
 
@@ -201,11 +203,13 @@ def editar_mantenimiento(
         f"El mantenimiento para el equipo {mantenimiento.equipo.nombre} "
         f"ha sido actualizado."
     )
-    destinatario = mantenimiento.responsable.correo
 
-    if not _notificacion_existente(mensaje, destinatario):
-        _crear_notificacion(mensaje, destinatario)
-        _enviar_correo(destinatario, mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return mantenimiento
 
@@ -246,11 +250,13 @@ def cambiar_estado(mantenimiento_id: int, nuevo_estado: str) -> Mantenimiento:
         f"El estado del mantenimiento para {mantenimiento.equipo.nombre} "
         f"ha cambiado a: {mantenimiento.get_estado_display()}"
     )
-    destinatario = mantenimiento.responsable.correo
-
-    if not _notificacion_existente(mensaje, destinatario):
-        _crear_notificacion(mensaje, destinatario)
-        _enviar_correo(destinatario, mensaje)
+    
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return mantenimiento
 
@@ -391,11 +397,12 @@ def crear_orden_servicio(
         f"Se ha creado una nueva orden de servicio para el equipo "
         f"{orden.mantenimiento.equipo.nombre}."
     )
-    destinatario = orden.mantenimiento.responsable.correo
-
-    if not _notificacion_existente(mensaje, destinatario):
-        _crear_notificacion(mensaje, destinatario)
-        _enviar_correo(destinatario, mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return orden
 
@@ -564,9 +571,13 @@ def supervisar_mantenimiento(mantenimiento_id: int, aprobado_por_id: int = None)
         f"El mantenimiento para el equipo {mantenimiento.equipo.nombre} "
         f"ha sido aprobado."
     )
-    if not _notificacion_existente(mensaje, mantenimiento.responsable.correo):
-        _crear_notificacion(mensaje, mantenimiento.responsable.correo)
-        _enviar_correo(mantenimiento.responsable.correo, mensaje)
+    
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return ProgramacionMantenimiento.objects.filter(
         equipo=mantenimiento.equipo

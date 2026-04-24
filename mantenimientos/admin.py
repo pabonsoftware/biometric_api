@@ -10,6 +10,7 @@ from .models import (
     MantenimientoHistorial
 )
 
+from notificaciones.models import Notificacion 
 
 @admin.register(Mantenimiento)
 class MantenimientoAdmin(admin.ModelAdmin):

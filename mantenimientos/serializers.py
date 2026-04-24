@@ -17,6 +17,7 @@ from .models import (
 
 from equipos.models import EquipoBiomedico
 from usuarios.models import Usuario
+from notificaciones.models import Notificacion
 
 
 class MantenimientoCreateSerializer(serializers.Serializer):
@@ -322,3 +323,11 @@ class ReporteWriteSerializer(serializers.ModelSerializer):
             "tipo",
             "archivo"
         ]
+
+class NotificacionSerializer(serializers.ModelSerializer):
+
+    idNotificacion = serializers.IntegerField(source="id",read_only=True)
+
+    class Meta:
+        model = Notificacion
+        fields = '__all__'
