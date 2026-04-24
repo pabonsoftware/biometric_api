@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 import os
 from dotenv import load_dotenv
 
@@ -136,6 +137,16 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS":[
         "django_filters.rest_framework.DjangoFilterBackend"
     ]
+}
+
+# JWT (rest_framework_simplejwt). Sin SIMPLE_JWT, los defaults son ~5 min (access) y 1 día (refresh).
+_JWT_ACCESS_MINUTES = int(os.environ.get("JWT_ACCESS_TOKEN_LIFETIME_MINUTES", "60"))
+_JWT_REFRESH_DAYS = int(os.environ.get("JWT_REFRESH_TOKEN_LIFETIME_DAYS", "7"))
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=_JWT_ACCESS_MINUTES),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=_JWT_REFRESH_DAYS),
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 

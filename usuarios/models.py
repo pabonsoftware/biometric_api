@@ -61,7 +61,8 @@ class Usuario(AbstractUser):
 
     estado = models.CharField(
         max_length=50,
-        choices=ESTADO_CHOICES
+        choices=ESTADO_CHOICES,
+        default="activo",
     )
 
     USERNAME_FIELD = "correo"

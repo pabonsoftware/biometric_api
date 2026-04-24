@@ -1,6 +1,7 @@
 import django_filters
 
-from .models import EquipoBiomedico
+from .models import EquipoBiomedico, TipoTecnologia, EstadoEquipo
+
 
 class EquipoFilter(django_filters.FilterSet):
 
@@ -24,6 +25,10 @@ class EquipoFilter(django_filters.FilterSet):
         lookup_expr='icontains'
     )
 
+    tipo_tecnologia = django_filters.ChoiceFilter(choices=TipoTecnologia.choices)
+
+    estado_equipo = django_filters.ChoiceFilter(choices=EstadoEquipo.choices)
+
     class Meta:
 
         model = EquipoBiomedico
@@ -33,5 +38,7 @@ class EquipoFilter(django_filters.FilterSet):
             "serie",
             "marca",
             "modelo",
-            "ubicacion"
+            "ubicacion",
+            "tipo_tecnologia",
+            "estado_equipo"
         ]
