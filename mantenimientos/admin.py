@@ -5,7 +5,9 @@ from .models import (
     ProgramacionMantenimiento,
     CertificadoMetrologico,
     Reporte,
-    Notificacion
+    EstadoMantenimiento,
+    CheckListMantenimiento,
+    MantenimientoHistorial
 )
 
 admin.site.register(Mantenimiento)
@@ -13,4 +15,6 @@ admin.site.register(OrdenServicio)
 admin.site.register(ProgramacionMantenimiento)
 admin.site.register(CertificadoMetrologico)
 admin.site.register(Reporte)
-admin.site.register(Notificacion)
+admin.site.register(MantenimientoHistorial)
+admin.site.register(CheckListMantenimiento)
+admin.site.register(EstadoMantenimiento)

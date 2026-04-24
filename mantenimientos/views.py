@@ -6,11 +6,13 @@ from rest_framework.decorators import action
 
 from .serializers import (
     MantenimientoSerializer,
+    MantenimientoWriteSerializer,
     CertificadoMetrologicoSerializer,
-    NotificacionSerializer,
     OrdenServicioSerializer,
+    OrdenServicioWriteSerializer,
     ProgramacionMantenimientoSerializer,
-    ReporteSerializer
+    ReporteSerializer,
+    ReporteWriteSerializer
 )
 
 from .selectors import (
@@ -20,7 +22,6 @@ from .selectors import (
     obtener_programaciones,
     obtener_reportes,
     obtener_reporte_por_id,
-    obtener_notificaciones
 )
 
 from .services import (
@@ -43,8 +44,6 @@ from .filters import (
 
 class MantenimientoViewSet(viewsets.ModelViewSet):
 
-    serializer_class = MantenimientoSerializer
-
     filter_backends = [DjangoFilterBackend]
     filterset_class = MantenimientoFilter
 
@@ -52,18 +51,24 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
         return obtener_mantenimientos()
     
+    def get_serializer_class(self):
+
+        if self.action in ["create","update","partial_update"]:
+            return MantenimientoWriteSerializer
+        return MantenimientoSerializer
+    
     def retrieve(self,request,pk=None):
 
         mantenimiento = obtener_mantenimiento_por_id(pk)
 
-        serializer = self.get_serializer(mantenimiento)
+        serializer = MantenimientoSerializer(mantenimiento)
 
         return Response(serializer.data)
     
 
     def create(self,request):
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = MantenimientoWriteSerializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
 
@@ -78,7 +83,7 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
 
         mantenimiento = obtener_mantenimiento_por_id(pk)
 
-        serializer = self.get_serializer(
+        serializer = MantenimientoWriteSerializer(
             mantenimiento,
             data=request.data
         )
@@ -125,14 +130,17 @@ class MantenimientoViewSet(viewsets.ModelViewSet):
     
 class OrdenServicioViewSet(viewsets.ModelViewSet):
 
-    serializer_class = OrdenServicioSerializer
-
     def get_queryset(self):
         return obtener_ordenes()
     
+    def get_serializer_class(self):
+        if self.action in ["create","update","partial_update"]:
+            return OrdenServicioWriteSerializer
+        return OrdenServicioSerializer
+
     def create(self,request):
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = OrdenServicioWriteSerializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
 
@@ -152,7 +160,7 @@ class OrdenServicioViewSet(viewsets.ModelViewSet):
 
         orden.save()
 
-        serializer = self.get_serializer(orden)
+        serializer = OrdenServicioSerializer(orden)
 
         return Response({
             "message":"Orden cerrada correctamente",
@@ -226,29 +234,25 @@ class CertificadoMetrologicoViewSet(viewsets.ModelViewSet):
             "data":serializer.data
         },status=status.HTTP_201_CREATED)
 
-class NotificacionViewSet(viewsets.ReadOnlyModelViewSet):
-
-    serializer_class = NotificacionSerializer
-
-    def get_queryset(self):
-        return obtener_notificaciones()
-
 
 class ReporteViewSet(viewsets.ModelViewSet):
-
-    serializer_class = ReporteSerializer
 
     filter_backends = [DjangoFilterBackend]
     filterset_class = ReporteFilter
 
     def get_queryset(self):
         return obtener_reportes()
+    
+    def get_serializer_class(self):
+        if self.action in ["create","update","partial_update"]:
+            return ReporteWriteSerializer
+        return ReporteSerializer
 
     def retrieve(self, request, pk=None):
 
         reporte = obtener_reporte_por_id(pk)
 
-        serializer = self.get_serializer(reporte)
+        serializer = ReporteSerializer(reporte)
 
         return Response({
             "message":"Reporte encontrado",

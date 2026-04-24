@@ -1,66 +1,138 @@
 from django.db import models
 
 from datetime import date,timedelta
+from django.utils import timezone
 
-from equipos.models import EquipoBiomedico
+from equipos.models import EquipoBiomedico, ArchivoAdjunto
 from usuarios.models import Usuario
+
+class Prioridad(models.TextChoices):
+    BAJA = "baja","Baja"
+    MEDIA = "media","Media"
+    ALTA = "alta","Alta",
+    CRITICA = "critica","Crítica"
+
+class EstadoMantenimiento(models.TextChoices):
+    PENDIENTE = "pendiente","Pendiente"
+    APROBADO = "aprobado","Aprobado"
+    EN_PROCESO = "en_proceso","En proceso"
+    FINALIZADO = "finalizado","Finalizado"
+    ATRASADO = "atrasado","Atrasado"
 
 class Mantenimiento(models.Model):
 
-    ESTADO_CHOICES = [
-        ('aprobado','APROBADO'),
-        ('pendiente','PENDIENTE'),
-        ('supervisado','SUPERVISADO'),
-        ('ejecutado','EJECUTADO')
-    ]
+    equipo = models.ForeignKey("equipos.EquipoBiomedico",on_delete=models.CASCADE)
+    responsable = models.ForeignKey("usuarios.Usuario",on_delete=models.CASCADE,null=True)
 
-    TIPO_CHOICES = [
-        ('preventivo','PREVENTIVO'),
-        ('correctivo','CORRECTIVO'),
-        ('calibracion','CALIBRACION'),
-        ('falla','FALLA'),
-        ('sistema','SISTEMA')
-    ]
+    descripcion = models.TextField()
 
-    equipo = models.ForeignKey(
-        EquipoBiomedico,
-        on_delete=models.CASCADE,
-        related_name='mantenimientos'
+    prioridad = models.CharField(
+        max_length=20,
+        choices=Prioridad.choices,
+        default=Prioridad.MEDIA
     )
 
     estado = models.CharField(
         max_length=20,
-        choices=ESTADO_CHOICES,
-        default='pendiente'
+        choices=EstadoMantenimiento.choices,
+        default=EstadoMantenimiento.PENDIENTE
     )
 
-    tipo = models.CharField(
-        max_length=50,
-        choices=TIPO_CHOICES,
-        default='mantenimiento'
-    )
+    fecha_programada = models.DateTimeField()
+    fecha_inicio = models.DateTimeField(null=True,blank=True)
+    fecha_fin = models.DateTimeField(null=True,blank=True)
 
-    fechaInicio = models.DateField(null=True,blank=True)
+    fecha_limite = models.DateTimeField()
 
-    fechaFin = models.DateField(null=True,blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now_add=True)
 
-    responsable = models.ForeignKey(
-        Usuario,
-        on_delete=models.CASCADE,
-        related_name='mantenimientos_responsable'
-    )
-
-    aprobado_por = models.ForeignKey(
-        Usuario,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='mantenimientos_aprobados'
-    )
-
+    def esta_atrasado(self):
+        return self.fecha_limite < timezone.now() and self.estado != "finalizado"
+    
     def __str__(self):
         return f"{self.equipo.nombre} - {self.estado}"
     
+class MantenimientoHistorial(models.Model):
+
+    mantenimiento = models.ForeignKey(
+        Mantenimiento,
+        on_delete=models.CASCADE,
+        related_name='historial'
+    )
+
+    usuario = models.ForeignKey(
+        "usuarios.Usuario",
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    acccion = models.CharField(max_length=100)
+
+    cambios = models.JSONField(default=dict)
+
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.accion} - {self.fecha}"
+    
+class EventoMantenimiento(models.Model):
+
+    TIPO_EVENTO = [
+        ("creado","Creado"),
+        ("actualizado","Actualizado"),
+        ("aprobado","Aprobado"),
+        ("finalizado","Finalizado")
+    ]
+
+    mantenimiento = models.ForeignKey(
+        Mantenimiento,
+        on_delete=models.CASCADE
+    )
+
+    tipo = models.CharField(max_length=50,choices=TIPO_EVENTO)
+
+    descripcion = models.TextField()
+
+    usuario = models.ForeignKey(
+        "usuarios.Usuario",
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    fecha = models.DateTimeField(auto_now_add=True)
+
+class CheckListMantenimiento(models.Model):
+
+    mantenimiento = models.ForeignKey(
+        Mantenimiento,
+        on_delete=models.CASCADE,
+        related_name='checklist'
+    )
+
+    item = models.CharField(max_length=255)
+
+    completado = models.BooleanField(default=False)
+
+    fecha = models.DateTimeField(null=True,blank=True)
+
+    def __str__(self):
+        return self.item
+    
+class EvidenciaMantenimiento(models.Model):
+
+    mantenimiento = models.ForeignKey(
+        Mantenimiento,
+        on_delete=models.CASCADE,
+        related_name='evidencias'
+    )
+
+    archivo = models.FileField(upload_to='mantenimientos/')
+
+    descripcion = models.CharField(max_length=255)
+
+    fecha = models.DateTimeField(auto_now_add=True)
+
 class ProgramacionMantenimiento(models.Model):
 
     UNIDAD_FRECUENCIA = [
@@ -76,7 +148,6 @@ class ProgramacionMantenimiento(models.Model):
     )
 
     frecuenciaMantenimiento = models.IntegerField()
-
     frecuenciaCalibracion = models.IntegerField()
 
     unidadFrecuencia = models.CharField(
@@ -85,8 +156,13 @@ class ProgramacionMantenimiento(models.Model):
     )
 
     proximoMantenimiento = models.DateField(blank=True,null=True)
-
     proximoCalibracion = models.DateField(blank=True,null=True)
+
+    ultimaEjecucion = models.DateField(null=True,blank=True)
+
+    activo = models.BooleanField(default=True)
+
+    creado_en = models.DateTimeField(auto_now_add=True)
 
     def calcularProximaFecha(self):
 
@@ -112,6 +188,9 @@ class ProgramacionMantenimiento(models.Model):
 
         self.save()
 
+    def esta_vencido(self):
+        return self.proximoMantenimiento and self.proximoMantenimiento < date.today()
+
     def __str__(self):
         return f"{self.equipo.nombre} - Mant: {self.frecuenciaMantenimiento}"
     
@@ -121,8 +200,8 @@ class OrdenServicio(models.Model):
     ESTADO_CHOICES = [
         ('aprobada','APROBADA'),
         ('pendiente','PENDIENTE'),
-        ('supervisada','SUPERVISADA'),
-        ('ejecutada','EJECUTADA')
+        ('finalizada','FINALIZADA'),
+        ('cancelada','CANCELADA')
     ]
 
     mantenimiento = models.ForeignKey(
@@ -131,17 +210,23 @@ class OrdenServicio(models.Model):
         related_name='ordenes'
     )
 
+    responsable = models.ForeignKey(Usuario,on_delete=models.SET_NULL,null=True)
+
     tipoServicio = models.CharField(max_length=50)
 
     fechaInicio = models.DateField(auto_now_add=True)
-
-    fechaFin = models.DateField(auto_now_add=True)
+    fechaFin = models.DateField(null=True,blank=True)
 
     descripcion = models.TextField()
 
     estado = models.CharField(
         max_length=50,
         choices=ESTADO_CHOICES
+    )
+
+    duracionHoras = models.IntegerField(
+        null=True,
+        blank=True
     )
 
     def __str__(self):
@@ -167,6 +252,10 @@ class CertificadoMetrologico(models.Model):
         blank=True
     )
 
+    archivo = models.FileField(upload_to='certificados/',null=True,blank=True)
+
+    valido_hasta = models.DateField(null=True,blank=True)
+
     def __str__(self):
         return f"{self.numeroCertificado} - {self.fecha}"
     
@@ -177,7 +266,6 @@ class Reporte(models.Model):
         ('preventivo','PREVENTIVO'),
         ('calibracion','CALIBRACION'),
         ('falla','FALLA'),
-        ('sistema','SISTEMA')
     ]
 
     mantenimiento = models.ForeignKey(
@@ -185,6 +273,8 @@ class Reporte(models.Model):
         on_delete=models.CASCADE,
         related_name='reportes'
     )
+
+    autor = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True)
 
     nombre = models.CharField(max_length=100)
 
@@ -197,51 +287,9 @@ class Reporte(models.Model):
         choices=TIPO_CHOICES
     )
 
-    falla = models.JSONField(
-        null=True,
-        blank=True
-    )
+    archivo = models.FileField(upload_to='reportes/',null=True,blank=True)
 
-    archivo = models.FileField(
-        upload_to='reportes/',
-        null=True,
-        blank=True
-    )
-
+    version = models.IntegerField(default=1)
+    
     def __str__(self):
         return f"{self.nombre} - {self.tipo}"
-    
-class Notificacion(models.Model):
-
-    ESTADO_CHOICES = [
-        ('aprobado','APROBADO'),
-        ('pendiente','PENDIENTE'),
-        ('supervisado','SUPERVISADO'),
-        ('ejecutado','EJECUTADO')
-    ]
-
-    TIPO_CHOICES = [
-        ('mantenimiento','MANTENIMIENTO'),
-        ('calibracion','CALIBRACION'),
-        ('falla','FALLA'),
-        ('sistema','SISTEMA')
-    ]
-
-    mensaje = models.CharField(max_length=200)
-
-    fecha = models.DateField(auto_now_add=True)
-
-    estado = models.CharField(
-        max_length=30,
-        choices=ESTADO_CHOICES
-    )
-
-    tipo = models.CharField(
-        max_length=35,
-        choices=TIPO_CHOICES
-    )
-
-    destinatario = models.EmailField()
-
-    def __str__(self):
-        return f"{self.tipo} - {self.estado}"

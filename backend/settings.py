@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'equipos',
     'mantenimientos',
     'usuarios',
+    'notificaciones',
 
     'corsheaders',
     'django_filters',

@@ -8,11 +8,8 @@ from equipos.models import (
     EquipoBiomedico
 )
 
-from .tasks import (
-    _notificacion_existente,
-    _crear_notificacion,
-    _enviar_correo
-)
+from notificaciones.models import Notificacion
+from services.notifications.notificacion_service import notificar
 
 def crear_mantenimiento(data):
 
@@ -20,11 +17,12 @@ def crear_mantenimiento(data):
 
     mensaje = f"Se ha creado un mantenimiento para el equipo {mantenimiento.equipo.nombre}"
 
-    destinatario = mantenimiento.responsable.correo
-
-    if not _notificacion_existente(mensaje,destinatario):
-        _crear_notificacion(mensaje,destinatario)
-        _enviar_correo(destinatario,mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Nuevo mantenimiento asignado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return mantenimiento
 
@@ -38,11 +36,12 @@ def actualizar_mantenimiento(mantenimiento,data):
 
     mensaje = f"El mensaje para el equipo {mantenimiento.equipo.nombre} ha sido actualizado"
 
-    destinatario = mantenimiento.responsable.correo 
-
-    if not _notificacion_existente(mensaje,destinatario):
-        _crear_notificacion(mensaje,destinatario)
-        _enviar_correo(destinatario,mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Mantenimiento actualizado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return mantenimiento
 
@@ -54,9 +53,12 @@ def supervisar_mantenimiento(mantenimiento):
 
     mensaje = f"El mantenimiento para el equipo {mantenimiento.equipo.nombre} ha sido aprobado."
 
-    if not _notificacion_existente(mensaje,mantenimiento.responsable.correo):
-        _crear_notificacion(mensaje,mantenimiento.responsable.correo)
-        _enviar_correo(mantenimiento.responsable.correo, mensaje)
+    notificar(
+        mantenimiento.responsable,
+        "Mantenimiento aprobado",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
 
     programaciones = ProgramacionMantenimiento.objects.filter(
@@ -70,10 +72,14 @@ def crear_orden_servicio(data):
 
     orden = OrdenServicio.objects.create(**data)
 
-    mensaje = f"Se ha creado una nueva orden de servicio para el equipo {orden.mantenimiento.equipo}."
-    if not _notificacion_existente(mensaje,orden.mantenimiento.responsable.correo):
-        _crear_notificacion(mensaje,orden.mantenimiento.responsable.correo)
-        _enviar_correo(orden.mantenimiento.responsable.correo,mensaje)
+    mensaje = f"Se ha creado una orden de servicio para el equipo {orden.mantenimiento.equipo.nombre}"
+
+    notificar(
+        orden.mantenimiento.responsable,
+        "Nueva orden de servicio",
+        mensaje,
+        tipo="mantenimiento"
+    )
 
     return orden
 
