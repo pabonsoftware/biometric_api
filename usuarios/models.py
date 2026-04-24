@@ -81,3 +81,35 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f"{self.usuario.correo} - {self.token}"
+
+
+class UserAudit(models.Model):
+    """Records all actions performed on users (create, edit, deactivate)."""
+
+    ACTION_TYPES = [
+        ('create', 'Create'),
+        ('edit', 'Edit'),
+        ('deactivate', 'Deactivate'),
+        ('activate', 'Activate'),
+    ]
+
+    actor = models.ForeignKey(
+        Usuario,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audits_performed'
+    )
+    target_user = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='audits_received'
+    )
+    action_type = models.CharField(max_length=20, choices=ACTION_TYPES)
+    details = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.action_type} - {self.target_user.correo} - {self.created_at}"
