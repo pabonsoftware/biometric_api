@@ -27,11 +27,8 @@ from .exceptions import (
     ProgramacionNotFound,
 )
 
-from .tasks import (
-    _notificacion_existente,
-    _crear_notificacion,
-    _enviar_correo
-)
+from notificaciones.models import Notificacion
+from services.notifications.notificacion_service import notificar
 
 
 # ============================================================================

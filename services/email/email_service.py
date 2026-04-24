@@ -4,22 +4,22 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def enviar_alerta_correo(destinatario,mensaje):
+def enviar_alerta_correo(to,subject,message):
 
     if not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST:
         logger.warning(
-            "Email not sent to %s: SMTP credentials are not configured.",destinatario
+            f"Email not sent to {to}: SMTP not configured"
         )
         return 
     
     try:
         send_mail(
-             "Alerta de mantenimiento biomédico",
-            mensaje,
+            subject,
+            message,
             settings.EMAIL_HOST_USER,
-            [destinatario],
-            fail_silently=False,
+            [to],
+            fail_silently=False
         )
 
     except Exception as e:
-        logger.error("Failed to send email to %s: %s", destinatario, e)
+        logger.error(f"Error sending email to {to}: {str(e)}")

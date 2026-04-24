@@ -3,12 +3,11 @@ from .models import (
     ProgramacionMantenimiento,
     OrdenServicio,
     Reporte,
-    Notificacion
 )
 
 def obtener_mantenimientos():
 
-    return Mantenimiento.objects.all()
+    return Mantenimiento.objects.select_related("equipo","responsable")
 
 def obtener_mantenimiento_por_id(pk):
 
@@ -46,5 +45,3 @@ def contar_reportes():
 
     return Reporte.objects.count()
 
-def obtener_notificaciones():
-    return Notificacion.objects.all()

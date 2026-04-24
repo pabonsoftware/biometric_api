@@ -12,7 +12,6 @@ from .models import (
     ProgramacionMantenimiento,
     OrdenServicio,
     CertificadoMetrologico,
-    Notificacion,
     Reporte
 )
 
@@ -267,6 +266,19 @@ class OrdenServicioSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+class OrdenServicioWriteSerializer(serializers.ModelSerializer):
+
+    class Meta:
+
+        model = OrdenServicio
+
+        fields = [
+            "mantenimiento",
+            "tipoServicio",
+            "descripcion",
+            "estado"
+        ]
+
 class CertificadoMetrologicoSerializer(serializers.ModelSerializer):
 
     idCertificado = serializers.IntegerField(source="id",read_only=True)
@@ -280,28 +292,33 @@ class CertificadoMetrologicoSerializer(serializers.ModelSerializer):
         model = CertificadoMetrologico
         fields = '__all__'
 
-class NotificacionSerializer(serializers.ModelSerializer):
-
-    idNotificacion = serializers.IntegerField(source="id",read_only=True)
-
-    class Meta:
-        model = Notificacion
-        fields = '__all__'
 
 class ReporteSerializer(serializers.ModelSerializer):
 
     idReporte = serializers.IntegerField(source="id",read_only=True)
 
-    equipo = serializers.PrimaryKeyRelatedField(
-        source="mantenimiento.equipo.id",
+    equipoNombre = serializers.CharField(
+        source="equipo.nombre",
         read_only=True
     )
 
-    equipoNombre = serializers.CharField(
-        source="mantenimiento.equipo.id",
-        read_only=True
-    )
+    vencido = serializers.SerializerMethodField()
+
+    def get_vencido(self,obj):
+        return obj.esta_vencido
 
     class Meta:
         model = Reporte
         fields = '__all__'
+
+class ReporteWriteSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Reporte
+        fields = [
+            "mantenimiento",
+            "nombre",
+            "descripcion",
+            "tipo",
+            "archivo"
+        ]

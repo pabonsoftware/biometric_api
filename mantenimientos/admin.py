@@ -5,7 +5,9 @@ from .models import (
     ProgramacionMantenimiento,
     CertificadoMetrologico,
     Reporte,
-    Notificacion
+    EstadoMantenimiento,
+    CheckListMantenimiento,
+    MantenimientoHistorial
 )
 
 

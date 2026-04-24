@@ -15,10 +15,11 @@ from .serializers import (
     MantenimientoCreateSerializer,
     MantenimientoUpdateSerializer,
     CertificadoMetrologicoSerializer,
-    NotificacionSerializer,
     OrdenServicioSerializer,
+    OrdenServicioWriteSerializer,
     ProgramacionMantenimientoSerializer,
-    ReporteSerializer
+    ReporteSerializer,
+    ReporteWriteSerializer
 )
 
 from .selectors import (
@@ -28,7 +29,6 @@ from .selectors import (
     obtener_programaciones,
     obtener_reportes,
     obtener_reporte_por_id,
-    obtener_notificaciones
 )
 
 from .services import (
@@ -440,12 +440,17 @@ class ReporteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return obtener_reportes()
+    
+    def get_serializer_class(self):
+        if self.action in ["create","update","partial_update"]:
+            return ReporteWriteSerializer
+        return ReporteSerializer
 
     def retrieve(self, request, pk=None):
         """Get a specific report."""
         reporte = obtener_reporte_por_id(pk)
 
-        serializer = self.get_serializer(reporte)
+        serializer = ReporteSerializer(reporte)
 
         return Response({
             "message": "Reporte encontrado",
