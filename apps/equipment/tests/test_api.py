@@ -5,10 +5,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.branches.tests.factories import BranchFactory
+from apps.catalog.tests.factories import BrandFactory, EquipmentModelFactory
 from apps.equipment.models import Equipment, EquipmentStatus
 
 from .factories import EquipmentFactory
-
 
 LIST_URL = reverse("v1:equipment:equipment-list")
 
@@ -30,60 +30,68 @@ class TestEquipmentAuth:
     def test_list_requires_auth(self, api_client):
         assert api_client.get(LIST_URL).status_code == 401
 
-    def test_create_requires_auth(self, api_client, branch):
-        payload = {"name": "x", "asset_tag": "EQ-1", "brand": "b", "model": "m", "branch": branch.id}
+    def test_create_requires_auth(self, api_client, branch, equipment_model):
+        payload = {
+            "name": "x",
+            "asset_tag": "EQ-1",
+            "equipment_model": equipment_model.id,
+            "branch": branch.id,
+        }
         assert api_client.post(LIST_URL, payload, format="json").status_code == 401
 
 
 @pytest.mark.django_db
 class TestEquipmentCreate:
-    def _payload(self, branch):
+    def _payload(self, branch, equipment_model):
         return {
             "name": "Monitor de signos vitales",
             "asset_tag": "EQ-0001",
-            "brand": "Philips",
-            "model": "MX450",
+            "equipment_model": equipment_model.id,
             "branch": branch.id,
             "location": "UCI - cama 3",
             "purchase_date": "2024-08-15",
             "status": EquipmentStatus.ACTIVE,
         }
 
-    def test_create_201_and_qr_url_present(self, auth_client, branch):
-        response = auth_client.post(LIST_URL, self._payload(branch), format="json")
+    def test_create_201_and_qr_url_present(self, auth_client, branch, equipment_model):
+        response = auth_client.post(LIST_URL, self._payload(branch, equipment_model), format="json")
         assert response.status_code == 201
         body = response.json()
         assert body["qr_code_url"]
         assert body["qr_code_url"].startswith("http")
         assert body["asset_tag"] == "EQ-0001"
         assert body["branch_name"] == branch.name
+        assert body["equipment_model"] == equipment_model.id
+        assert body["equipment_model_name"] == equipment_model.name
+        assert body["brand_name"] == equipment_model.brand.name
+        assert body["risk_class"] is None
 
-    def test_asset_tag_normalized_to_uppercase(self, auth_client, branch):
-        payload = self._payload(branch)
+    def test_asset_tag_normalized_to_uppercase(self, auth_client, branch, equipment_model):
+        payload = self._payload(branch, equipment_model)
         payload["asset_tag"] = "  eq-abc  "
         response = auth_client.post(LIST_URL, payload, format="json")
         assert response.status_code == 201
         assert response.json()["asset_tag"] == "EQ-ABC"
 
-    def test_duplicate_asset_tag_case_insensitive(self, auth_client, branch):
-        EquipmentFactory(asset_tag="EQ-0001", branch=branch)
-        payload = self._payload(branch)
+    def test_duplicate_asset_tag_case_insensitive(self, auth_client, branch, equipment_model):
+        EquipmentFactory(asset_tag="EQ-0001", branch=branch, equipment_model=equipment_model)
+        payload = self._payload(branch, equipment_model)
         payload["asset_tag"] = "eq-0001"
         response = auth_client.post(LIST_URL, payload, format="json")
         assert response.status_code == 400
         assert "código de inventario" in str(response.json()).lower()
 
-    def test_future_purchase_date_returns_400(self, auth_client, branch):
-        payload = self._payload(branch)
+    def test_future_purchase_date_returns_400(self, auth_client, branch, equipment_model):
+        payload = self._payload(branch, equipment_model)
         future = (timezone.localdate() + timedelta(days=10)).isoformat()
         payload["purchase_date"] = future
         response = auth_client.post(LIST_URL, payload, format="json")
         assert response.status_code == 400
         assert "fecha de compra" in str(response.json()).lower()
 
-    def test_inactive_branch_returns_400(self, auth_client):
+    def test_inactive_branch_returns_400(self, auth_client, equipment_model):
         inactive = BranchFactory(is_active=False)
-        payload = self._payload(inactive)
+        payload = self._payload(inactive, equipment_model)
         response = auth_client.post(LIST_URL, payload, format="json")
         assert response.status_code == 400
         assert "no está activa" in str(response.json()).lower()
@@ -91,7 +99,7 @@ class TestEquipmentCreate:
     def test_missing_required_fields(self, auth_client):
         response = auth_client.post(LIST_URL, {}, format="json")
         assert response.status_code == 400
-        for field in ("name", "asset_tag", "brand", "model", "branch"):
+        for field in ("name", "asset_tag", "equipment_model", "branch"):
             assert field in response.json()
 
 
@@ -117,11 +125,22 @@ class TestEquipmentList:
         response = auth_client.get(LIST_URL, {"status": "ACTIVE"})
         assert response.json()["count"] == 1
 
-    def test_filter_by_brand_icontains(self, auth_client):
-        EquipmentFactory(brand="Philips Medical")
-        EquipmentFactory(brand="GE")
-        response = auth_client.get(LIST_URL, {"brand": "philips"})
-        assert response.json()["count"] == 1
+    def test_filter_by_equipment_model(self, auth_client):
+        target_model = EquipmentModelFactory()
+        EquipmentFactory.create_batch(2, equipment_model=target_model)
+        EquipmentFactory()
+        response = auth_client.get(LIST_URL, {"equipment_model": target_model.id})
+        assert response.json()["count"] == 2
+
+    def test_filter_by_brand(self, auth_client):
+        target_brand = BrandFactory()
+        m1 = EquipmentModelFactory(brand=target_brand)
+        m2 = EquipmentModelFactory(brand=target_brand)
+        EquipmentFactory(equipment_model=m1)
+        EquipmentFactory(equipment_model=m2)
+        EquipmentFactory()  # otra brand
+        response = auth_client.get(LIST_URL, {"brand": target_brand.id})
+        assert response.json()["count"] == 2
 
     def test_filter_by_purchase_date_range(self, auth_client):
         EquipmentFactory(purchase_date="2024-06-01")
@@ -140,6 +159,28 @@ class TestEquipmentList:
         tags = [e["asset_tag"] for e in response.json()["results"]]
         assert "EQ-ABC" in tags
 
+    def test_search_by_brand_name(self, auth_client):
+        philips = BrandFactory(name="Philips")
+        ge = BrandFactory(name="GE")
+        m_philips = EquipmentModelFactory(brand=philips)
+        m_ge = EquipmentModelFactory(brand=ge)
+        EquipmentFactory(equipment_model=m_philips)
+        EquipmentFactory(equipment_model=m_ge)
+        response = auth_client.get(LIST_URL, {"search": "Philips"})
+        results = response.json()["results"]
+        assert len(results) == 1
+        assert results[0]["brand_name"] == "Philips"
+
+    def test_search_by_equipment_model_name(self, auth_client):
+        m1 = EquipmentModelFactory(name="MX450")
+        m2 = EquipmentModelFactory(name="MP70")
+        EquipmentFactory(equipment_model=m1)
+        EquipmentFactory(equipment_model=m2)
+        response = auth_client.get(LIST_URL, {"search": "MX450"})
+        results = response.json()["results"]
+        assert len(results) == 1
+        assert results[0]["equipment_model_name"] == "MX450"
+
     def test_ordering_by_name(self, auth_client):
         EquipmentFactory(name="Zeta")
         EquipmentFactory(name="Alfa")
@@ -156,6 +197,8 @@ class TestEquipmentRetrieve:
         body = response.json()
         assert body["id"] == equipment.id
         assert body["qr_code_url"]
+        assert body["equipment_model_name"] == equipment.equipment_model.name
+        assert body["brand_name"] == equipment.equipment_model.brand.name
 
     def test_retrieve_missing_returns_404(self, auth_client):
         assert auth_client.get(detail_url(99999)).status_code == 404
@@ -192,12 +235,11 @@ class TestEquipmentUpdate:
         )
         assert response.status_code == 200
 
-    def test_put_replaces_all_fields(self, auth_client, branch, equipment):
+    def test_put_replaces_all_fields(self, auth_client, branch, equipment, equipment_model):
         payload = {
             "name": "Reemplazado",
             "asset_tag": "EQ-NEW",
-            "brand": "GE",
-            "model": "Z1",
+            "equipment_model": equipment_model.id,
             "branch": branch.id,
             "location": "Quirófano",
             "purchase_date": "2024-01-01",
@@ -238,3 +280,86 @@ class TestEquipmentDelete:
 
     def test_delete_missing_returns_404(self, auth_client):
         assert auth_client.delete(detail_url(99999)).status_code == 404
+
+
+@pytest.mark.django_db
+class TestEquipmentRiskClass:
+    def test_create_without_risk_class_defaults_to_null(self, auth_client, branch, equipment_model):
+        payload = {
+            "name": "Monitor",
+            "asset_tag": "EQ-9001",
+            "branch": branch.id,
+            "equipment_model": equipment_model.id,
+        }
+        response = auth_client.post(LIST_URL, payload, format="json")
+        assert response.status_code == 201
+        assert response.json()["risk_class"] is None
+
+    def test_create_with_valid_risk_class(self, auth_client, branch, equipment_model):
+        payload = {
+            "name": "Desfibrilador",
+            "asset_tag": "EQ-9002",
+            "branch": branch.id,
+            "equipment_model": equipment_model.id,
+            "risk_class": "IIB",
+        }
+        response = auth_client.post(LIST_URL, payload, format="json")
+        assert response.status_code == 201
+        assert response.json()["risk_class"] == "IIB"
+
+    def test_create_with_invalid_risk_class_returns_400(self, auth_client, branch, equipment_model):
+        payload = {
+            "name": "X",
+            "asset_tag": "EQ-9003",
+            "branch": branch.id,
+            "equipment_model": equipment_model.id,
+            "risk_class": "X",
+        }
+        response = auth_client.post(LIST_URL, payload, format="json")
+        assert response.status_code == 400
+        assert "risk_class" in response.json()
+
+    def test_filter_by_risk_class(self, auth_client, branch, equipment_model):
+        EquipmentFactory(branch=branch, equipment_model=equipment_model, risk_class="IIB")
+        EquipmentFactory(branch=branch, equipment_model=equipment_model, risk_class="IIA")
+        response = auth_client.get(LIST_URL, {"risk_class": "IIB"})
+        assert response.status_code == 200
+        assert response.json()["count"] == 1
+
+    def test_filter_by_risk_class_isnull_true(self, auth_client, branch, equipment_model):
+        EquipmentFactory(branch=branch, equipment_model=equipment_model, risk_class=None)
+        EquipmentFactory(branch=branch, equipment_model=equipment_model, risk_class="IIA")
+        response = auth_client.get(LIST_URL, {"risk_class__isnull": "true"})
+        assert response.status_code == 200
+        assert response.json()["count"] == 1
+
+
+@pytest.mark.django_db
+class TestEquipmentModelValidation:
+    def test_create_with_inactive_model_returns_400(self, auth_client, branch):
+        m = EquipmentModelFactory(is_active=False)
+        payload = {
+            "name": "X",
+            "asset_tag": "EQ-9100",
+            "branch": branch.id,
+            "equipment_model": m.id,
+        }
+        response = auth_client.post(LIST_URL, payload, format="json")
+        assert response.status_code == 400
+        assert "El modelo seleccionado no está activo" in response.json()["equipment_model"][0]
+
+    def test_create_with_inactive_brand_returns_400(self, auth_client, branch):
+        b = BrandFactory(is_active=False)
+        m = EquipmentModelFactory(brand=b, is_active=True)
+        payload = {
+            "name": "X",
+            "asset_tag": "EQ-9101",
+            "branch": branch.id,
+            "equipment_model": m.id,
+        }
+        response = auth_client.post(LIST_URL, payload, format="json")
+        assert response.status_code == 400
+        assert (
+            "La marca del modelo seleccionado no está activa"
+            in response.json()["equipment_model"][0]
+        )

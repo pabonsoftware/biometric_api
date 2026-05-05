@@ -13,13 +13,24 @@ class EquipmentStatus(models.TextChoices):
     IN_REPAIR = "IN_REPAIR", _("En reparación")
 
 
+class RiskClass(models.TextChoices):
+    I = "I", _("Clase I — riesgo bajo")  # noqa: E741
+    IIA = "IIA", _("Clase IIA — riesgo moderado")
+    IIB = "IIB", _("Clase IIB — riesgo moderado-alto")
+    III = "III", _("Clase III — riesgo alto")
+
+
 class Equipment(models.Model):
     name = models.CharField(_("Nombre"), max_length=150)
     asset_tag = models.CharField(
         _("Código de inventario"), max_length=50, unique=True, db_index=True
     )
-    brand = models.CharField(_("Marca"), max_length=80)
-    model = models.CharField(_("Modelo"), max_length=80)
+    equipment_model = models.ForeignKey(
+        "catalog.EquipmentModel",
+        on_delete=models.PROTECT,
+        related_name="equipment",
+        verbose_name=_("Modelo"),
+    )
     branch = models.ForeignKey(
         Branch,
         on_delete=models.PROTECT,
@@ -35,9 +46,15 @@ class Equipment(models.Model):
         default=EquipmentStatus.ACTIVE,
         db_index=True,
     )
-    qr_code = models.FileField(
-        _("Código QR"), upload_to="equipment/qr/", blank=True
+    risk_class = models.CharField(  # noqa: DJ001
+        _("Clasificación de riesgo INVIMA"),
+        max_length=4,
+        choices=RiskClass.choices,
+        null=True,
+        blank=True,
+        db_index=True,
     )
+    qr_code = models.FileField(_("Código QR"), upload_to="equipment/qr/", blank=True)
     created_at = models.DateTimeField(_("Creado"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Actualizado"), auto_now=True)
 
@@ -51,7 +68,8 @@ class Equipment(models.Model):
             models.Index(fields=["asset_tag"], name="equipment_asset_tag_idx"),
             models.Index(fields=["branch"], name="equipment_branch_idx"),
             models.Index(fields=["status"], name="equipment_status_idx"),
-            models.Index(fields=["brand"], name="equipment_brand_idx"),
+            models.Index(fields=["equipment_model"], name="equipment_model_idx"),
+            models.Index(fields=["risk_class"], name="equipment_risk_class_idx"),
         ]
 
     def __str__(self) -> str:

@@ -21,6 +21,7 @@ urlpatterns = [
     # Domain routes
     path("users/", include(("api.v1.users.urls", "users"), namespace="users")),
     path("branches/", include(("api.v1.branches.urls", "branches"), namespace="branches")),
+    path("catalog/", include(("api.v1.catalog.urls", "catalog"), namespace="catalog")),
     path("equipment/", include(("api.v1.equipment.urls", "equipment"), namespace="equipment")),
     path(
         "maintenance/",

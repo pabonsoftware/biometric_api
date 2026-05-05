@@ -1,6 +1,7 @@
 import pytest
 
-from apps.equipment.models import Equipment, EquipmentStatus
+from apps.catalog.tests.factories import EquipmentModelFactory
+from apps.equipment.models import Equipment, EquipmentStatus, RiskClass
 
 from .factories import EquipmentFactory
 
@@ -11,8 +12,21 @@ class TestEquipmentModel:
         assert str(equipment) == f"{equipment.name} ({equipment.asset_tag})"
 
     def test_default_status_is_active(self, branch):
-        eq = Equipment(name="x", asset_tag="EQ-X", brand="b", model="m", branch=branch)
+        eq_model = EquipmentModelFactory()
+        eq = Equipment(
+            name="x",
+            asset_tag="EQ-X",
+            equipment_model=eq_model,
+            branch=branch,
+        )
         assert eq.status == EquipmentStatus.ACTIVE
+
+    def test_default_risk_class_is_none(self, equipment):
+        assert equipment.risk_class is None
+
+    def test_risk_class_choices_are_invima(self):
+        values = {choice.value for choice in RiskClass}
+        assert values == {"I", "IIA", "IIB", "III"}
 
 
 @pytest.mark.django_db
@@ -34,10 +48,10 @@ class TestEquipmentManager:
         EquipmentFactory()
         assert Equipment.objects.for_branch(branch.id).count() == 2
 
-    def test_select_related_branch_avoids_n_plus_1(
-        self, django_assert_num_queries
-    ):
+    def test_select_related_avoids_n_plus_1(self, django_assert_num_queries):
         EquipmentFactory.create_batch(3)
         with django_assert_num_queries(1):
             for eq in Equipment.objects.all():
                 _ = eq.branch.name
+                _ = eq.equipment_model.name
+                _ = eq.equipment_model.brand.name

@@ -14,11 +14,18 @@ from .serializers import EquipmentSerializer
 class EquipmentViewSet(viewsets.ModelViewSet):
     """CRUD de equipos biomédicos + búsqueda por asset_tag y regeneración de QR."""
 
-    queryset = Equipment.objects.all()
+    queryset = Equipment.objects.select_related(
+        "branch", "equipment_model", "equipment_model__brand"
+    )
     serializer_class = EquipmentSerializer
     permission_classes = (IsAuthenticated,)
     filterset_class = EquipmentFilter
-    search_fields = ("name", "asset_tag", "model")
+    search_fields = (
+        "name",
+        "asset_tag",
+        "equipment_model__name",
+        "equipment_model__brand__name",
+    )
     ordering_fields = ("name", "purchase_date", "created_at")
     ordering = ("name",)
 
@@ -29,9 +36,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         url_name="by-asset-tag",
     )
     def by_asset_tag(self, request, tag: str = ""):
-        equipment = get_object_or_404(
-            Equipment, asset_tag__iexact=tag.strip()
-        )
+        equipment = get_object_or_404(Equipment, asset_tag__iexact=tag.strip())
         serializer = self.get_serializer(equipment)
         return Response(serializer.data)
 
@@ -59,11 +64,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         )
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = MaintenanceRecordSerializer(
-                page, many=True, context={"request": request}
-            )
+            serializer = MaintenanceRecordSerializer(page, many=True, context={"request": request})
             return self.get_paginated_response(serializer.data)
-        serializer = MaintenanceRecordSerializer(
-            queryset, many=True, context={"request": request}
-        )
+        serializer = MaintenanceRecordSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)

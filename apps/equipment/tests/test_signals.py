@@ -2,17 +2,14 @@ import pytest
 
 from apps.equipment.models import Equipment
 
-from .factories import EquipmentFactory
-
 
 @pytest.mark.django_db
 class TestAutoGenerateQrSignal:
-    def test_post_save_generates_qr_on_create(self, branch):
+    def test_post_save_generates_qr_on_create(self, branch, equipment_model):
         eq = Equipment.objects.create(
             name="Nuevo",
             asset_tag="EQ-NEW-1",
-            brand="b",
-            model="m",
+            equipment_model=equipment_model,
             branch=branch,
         )
         eq.refresh_from_db()

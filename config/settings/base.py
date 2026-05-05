@@ -61,6 +61,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS: list[str] = [
     "apps.users",
     "apps.branches",
+    "apps.catalog",
     "apps.equipment",
     "apps.maintenance",
     "apps.scheduling",

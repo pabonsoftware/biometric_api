@@ -14,4 +14,6 @@ class EquipmentQuerySet(models.QuerySet):
 
 class EquipmentManager(models.Manager.from_queryset(EquipmentQuerySet)):
     def get_queryset(self) -> EquipmentQuerySet:
-        return EquipmentQuerySet(self.model, using=self._db).select_related("branch")
+        return EquipmentQuerySet(self.model, using=self._db).select_related(
+            "branch", "equipment_model", "equipment_model__brand"
+        )

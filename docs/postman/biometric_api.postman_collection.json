@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b10m37c0-0000-4000-8000-000000000001",
     "name": "Biometric API",
-    "description": "Colección oficial del Biometric API (gestión de equipos biomédicos).\n\nIncluye:\n- Auth (JWT)\n- Users (CRUD + me + set_password) — fase 02.5\n- Branches (CRUD) — fase 02\n- Equipment (CRUD + by-asset-tag + regenerate-qr + history) — fase 03\n- Maintenance (CRUD historial + upload PDF) — fase 04\n- Scheduling (CRUD agendamientos + complete + notify por email async) — fase 05\n- Failures (CRUD reportes de falla + resolve) — fase 06\n\nCredencial de superusuario por defecto (creada manualmente):\n- username: admin\n- password: AdminPass123!\n\nFlujo recomendado: 1) `Auth › Login` para poblar `access_token`. 2) `Branches › Create` para poblar `branch_id`. 3) `Equipment › Create` para poblar `equipment_id`. 4) `Maintenance › Create` para poblar `maintenance_record_id`. 5) `Scheduling › Create` para poblar `schedule_id`. 6) `Failures › Create` para poblar `failure_id`. 7) probar el resto.",
+    "description": "Colección oficial del Biometric API (gestión de equipos biomédicos).\n\nIncluye:\n- Auth (JWT)\n- Users (CRUD + me + set_password) — fase 02.5\n- Branches (CRUD) — fase 02\n- Catalog (Brands + EquipmentModels CRUD) — fase 08\n- Equipment (CRUD + by-asset-tag + regenerate-qr + history) — fase 03 / actualizado en fase 08 (`equipment_model` FK + `risk_class`)\n- Maintenance (CRUD historial + upload PDF) — fase 04\n- Scheduling (CRUD agendamientos + complete + notify por email async) — fase 05\n- Failures (CRUD reportes de falla + resolve) — fase 06\n\nCredencial de superusuario por defecto (creada manualmente):\n- username: admin\n- password: AdminPass123!\n\nFlujo recomendado: 1) `Auth › Login` para poblar `access_token`. 2) `Branches › Create` para poblar `branch_id`. 3) `Catalog › Brands › Create` para poblar `brand_id`. 4) `Catalog › Equipment Models › Create` para poblar `equipment_model_id`. 5) `Equipment › Create` para poblar `equipment_id`. 6) `Maintenance › Create` para poblar `maintenance_record_id`. 7) `Scheduling › Create` para poblar `schedule_id`. 8) `Failures › Create` para poblar `failure_id`. 9) probar el resto.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,6 +11,8 @@
     { "key": "refresh_token", "value": "",                       "type": "string" },
     { "key": "user_id",       "value": "",                       "type": "string" },
     { "key": "branch_id",     "value": "",                       "type": "string" },
+    { "key": "brand_id",      "value": "",                       "type": "string" },
+    { "key": "equipment_model_id", "value": "",                  "type": "string" },
     { "key": "equipment_id",  "value": "",                       "type": "string" },
     { "key": "asset_tag_sample", "value": "EQ-0001",             "type": "string" },
     { "key": "maintenance_record_id", "value": "",               "type": "string" },
@@ -366,6 +368,261 @@
       ]
     },
     {
+      "name": "Catalog",
+      "description": "Catálogo de marcas y modelos de equipos biomédicos (fase 08). `Brand` agrupa modelos; `EquipmentModel` pertenece a una marca y es referenciado por `Equipment.equipment_model` (FK obligatoria). DELETE protegido (PROTECT) en ambos: 409 si la marca tiene modelos o el modelo tiene equipos. Búsqueda case-insensitive y unicidad case-insensitive en `name` (por marca para `EquipmentModel`).",
+      "item": [
+        {
+          "name": "Brands",
+          "item": [
+            {
+              "name": "List",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/?ordering=name",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", ""],
+                  "query": [
+                    { "key": "ordering",  "value": "name" },
+                    { "key": "is_active", "value": "true",   "disabled": true },
+                    { "key": "search",    "value": "Phil",   "disabled": true }
+                  ]
+                },
+                "description": "Filtros: `is_active`. Search: `name`. Ordering: `name`, `created_at` (default `name`)."
+              }
+            },
+            {
+              "name": "Create",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Philips\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", ""]
+                },
+                "description": "Crea una marca. `name` se normaliza (whitespace colapsado) y la unicidad es case-insensitive."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) {",
+                      "  pm.collectionVariables.set('brand_id', body.id);",
+                      "  if (pm.environment && pm.environment.name) pm.environment.set('brand_id', body.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create — error: nombre duplicado (case-insensitive)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"PHILIPS\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", ""]
+                },
+                "description": "Devuelve 400 con `{\"name\": [\"Ya existe una marca con este nombre.\"]}`."
+              }
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update (PATCH)",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"is_active\": false\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                },
+                "description": "Marcar `is_active=false` impide crear nuevos modelos con esta marca (validación serializer)."
+              }
+            },
+            {
+              "name": "Delete",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                },
+                "description": "Borra la marca. Devuelve 409 con `{\"detail\": \"No se puede eliminar la marca porque tiene modelos asociados.\"}` si tiene `EquipmentModel` asociados (PROTECT)."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Equipment Models",
+          "item": [
+            {
+              "name": "List",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/?ordering=name",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""],
+                  "query": [
+                    { "key": "ordering",        "value": "name" },
+                    { "key": "brand",           "value": "{{brand_id}}", "disabled": true },
+                    { "key": "is_active",       "value": "true",         "disabled": true },
+                    { "key": "brand_is_active", "value": "true",         "disabled": true },
+                    { "key": "search",          "value": "MX450",        "disabled": true }
+                  ]
+                },
+                "description": "Filtros: `brand` (id), `is_active`, `brand_is_active`. Search: `name`, `description`, `brand__name`. Ordering: `name`, `brand__name`, `created_at` (default `brand__name,name`)."
+              }
+            },
+            {
+              "name": "Create",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"brand\": {{brand_id}},\n  \"name\": \"MX450\",\n  \"description\": \"Monitor multiparámetro de signos vitales.\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""]
+                },
+                "description": "Crea un modelo de equipo. La unicidad de `name` es case-insensitive y por marca. La response expande `brand_name` (read-only)."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) {",
+                      "  pm.collectionVariables.set('equipment_model_id', body.id);",
+                      "  if (pm.environment && pm.environment.name) pm.environment.set('equipment_model_id', body.id);",
+                      "}",
+                      "pm.test('brand_name expandido', () => pm.expect(body.brand_name).to.be.a('string').and.not.empty);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create — error: marca inactiva",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"brand\": {{brand_id}},\n  \"name\": \"ModeloNuevo\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""]
+                },
+                "description": "Si la marca apuntada por `brand_id` tiene `is_active=false`, devuelve 400 con `{\"brand\": [\"La marca seleccionada no está activa.\"]}`."
+              }
+            },
+            {
+              "name": "Create — error: nombre duplicado en la misma marca",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"brand\": {{brand_id}},\n  \"name\": \"mx450\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""]
+                },
+                "description": "Devuelve 400 con `{\"name\": [\"Ya existe un modelo con este nombre para esta marca.\"]}`."
+              }
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update (PATCH)",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Monitor multiparámetro de signos vitales (revisado).\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                },
+                "description": "Borra el modelo. Devuelve 409 con `{\"detail\": \"No se puede eliminar el modelo porque tiene equipos asociados.\"}` si tiene `Equipment` asociados (PROTECT)."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Equipment",
       "item": [
         {
@@ -379,14 +636,18 @@
               "path": ["api", "v1", "equipment", ""],
               "query": [
                 { "key": "ordering",             "value": "name" },
-                { "key": "branch",               "value": "{{branch_id}}", "disabled": true },
-                { "key": "status",               "value": "ACTIVE",        "disabled": true },
-                { "key": "brand",                "value": "philips",       "disabled": true },
-                { "key": "purchase_date_after",  "value": "2024-01-01",    "disabled": true },
-                { "key": "purchase_date_before", "value": "2024-12-31",    "disabled": true },
-                { "key": "search",               "value": "MX450",         "disabled": true }
+                { "key": "branch",               "value": "{{branch_id}}",          "disabled": true },
+                { "key": "status",               "value": "ACTIVE",                 "disabled": true },
+                { "key": "equipment_model",      "value": "{{equipment_model_id}}", "disabled": true },
+                { "key": "brand",                "value": "{{brand_id}}",           "disabled": true },
+                { "key": "risk_class",           "value": "IIB",                    "disabled": true },
+                { "key": "risk_class__isnull",   "value": "true",                   "disabled": true },
+                { "key": "purchase_date_after",  "value": "2024-01-01",             "disabled": true },
+                { "key": "purchase_date_before", "value": "2024-12-31",             "disabled": true },
+                { "key": "search",               "value": "MX450",                  "disabled": true }
               ]
-            }
+            },
+            "description": "Filtros: `branch`, `status`, `equipment_model` (id), `brand` (id, vía `equipment_model__brand`), `risk_class` (`I`, `IIA`, `IIB`, `III`), `risk_class__isnull` (dashboard de pendientes de clasificar), `purchase_date_after`, `purchase_date_before`. Search: `name`, `asset_tag`, `equipment_model__name`, `equipment_model__brand__name`. Ordering: `name`, `purchase_date`, `created_at` (default `name`)."
           }
         },
         {
@@ -396,14 +657,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"brand\": \"Philips\",\n  \"model\": \"MX450\",\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"equipment_model\": {{equipment_model_id}},\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\",\n  \"risk_class\": \"IIB\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/equipment/",
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "equipment", ""]
             },
-            "description": "Genera el QR automáticamente. La response trae `qr_code_url` apuntando al PNG."
+            "description": "Genera el QR automáticamente. La response trae `qr_code_url` apuntando al PNG, además de los read-only `equipment_model_name` y `brand_name`. `equipment_model` es FK obligatoria a `/catalog/equipment-models/`. `risk_class` es opcional (`I`, `IIA`, `IIB`, `III`); omitir el campo lo deja `null` (pendiente de clasificar)."
           },
           "event": [
             {
@@ -498,7 +759,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"brand\": \"Philips\",\n  \"model\": \"MX450\",\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"equipment_model\": {{equipment_model_id}},\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\",\n  \"risk_class\": \"IIB\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/",

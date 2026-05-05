@@ -2,6 +2,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.branches.tests.factories import BranchFactory
+from apps.catalog.tests.factories import EquipmentModelFactory
 from apps.users.tests.factories import AdminFactory
 
 from .factories import EquipmentFactory
@@ -39,6 +40,11 @@ def auth_client(api_client, admin_user):
 @pytest.fixture
 def branch(db):
     return BranchFactory()
+
+
+@pytest.fixture
+def equipment_model(db):
+    return EquipmentModelFactory()
 
 
 @pytest.fixture
