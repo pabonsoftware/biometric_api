@@ -16,6 +16,16 @@ class MaintenanceRecordViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     parser_classes = (JSONParser, MultiPartParser, FormParser)
     filterset_class = MaintenanceRecordFilter
-    search_fields = ("description", "technician", "equipment__asset_tag")
+    search_fields = (
+        "description",
+        "technician",
+        "equipment__asset_tag",
+        "assigned_engineer__username",
+        "assigned_engineer__first_name",
+        "assigned_engineer__last_name",
+        "assigned_technician__username",
+        "assigned_technician__first_name",
+        "assigned_technician__last_name",
+    )
     ordering_fields = ("date", "created_at", "cost")
     ordering = ("-date",)

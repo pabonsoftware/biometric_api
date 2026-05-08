@@ -649,3 +649,12 @@ Authorization: Bearer {{access_token}}
 - Soft delete + auditoría con `django-simple-history`.
 - `next_recommended_date` calculado en base al `kind` y al equipo (input para fase 05).
 - Permisos por rol: técnicos solo pueden crear, admins pueden borrar.
+
+## 11. Actualizaciones posteriores
+
+- **Fase 09 (asignación de usuarios):** se añadieron al modelo dos FK opcionales a `users.User` —
+  `assigned_engineer` (con `limit_choices_to={"role": "ingeniero", "is_active": True}`) y
+  `assigned_technician` (con `limit_choices_to={"role": "tecnico", "is_active": True}`). Ambos con
+  `on_delete=SET_NULL` para no perder el histórico si el usuario se elimina. Filtros nuevos en
+  `MaintenanceRecordFilter`: `assigned_engineer`, `assigned_technician`, `unassigned`. Detalle del
+  diseño y razones en [`09-user-assignment.md`](09-user-assignment.md).

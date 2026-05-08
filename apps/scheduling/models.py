@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -26,6 +27,24 @@ class MaintenanceSchedule(models.Model):
     )
     scheduled_date = models.DateField(_("Fecha programada"), db_index=True)
     notes = models.TextField(_("Notas"), blank=True)
+    assigned_engineer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="engineering_schedules",
+        limit_choices_to={"role": "ingeniero", "is_active": True},
+        verbose_name=_("Ingeniero asignado"),
+    )
+    assigned_technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="technician_schedules",
+        limit_choices_to={"role": "tecnico", "is_active": True},
+        verbose_name=_("Técnico asignado"),
+    )
     notified_at = models.DateTimeField(_("Notificado el"), null=True, blank=True)
     is_completed = models.BooleanField(_("Completado"), default=False, db_index=True)
     created_at = models.DateTimeField(_("Creado"), auto_now_add=True)
@@ -40,6 +59,8 @@ class MaintenanceSchedule(models.Model):
         indexes = [
             models.Index(fields=["equipment", "scheduled_date"], name="sched_eq_date_idx"),
             models.Index(fields=["scheduled_date", "is_completed"], name="sched_date_comp_idx"),
+            models.Index(fields=["assigned_engineer"], name="sched_engineer_idx"),
+            models.Index(fields=["assigned_technician"], name="sched_technician_idx"),
         ]
 
     def __str__(self) -> str:

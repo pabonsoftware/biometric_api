@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.branches.tests.factories import BranchFactory
 from apps.equipment.tests.factories import EquipmentFactory
-from apps.users.tests.factories import AdminFactory
+from apps.users.tests.factories import AdminFactory, IngenieroFactory, TecnicoFactory
 
 from .factories import MaintenanceRecordFactory
 
@@ -50,3 +50,13 @@ def equipment(db, branch):
 @pytest.fixture
 def maintenance_record(db, equipment):
     return MaintenanceRecordFactory(equipment=equipment)
+
+
+@pytest.fixture
+def ingeniero(db):
+    return IngenieroFactory()
+
+
+@pytest.fixture
+def tecnico(db):
+    return TecnicoFactory()

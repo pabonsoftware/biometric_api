@@ -777,3 +777,13 @@ Abrir `http://localhost:8025/` para ver los emails capturados con UI web.
 - Soporte SMS (Twilio) o WhatsApp Business.
 - Métricas: % schedules cumplidos a tiempo, lead time promedio.
 - Permisos: solo administradores pueden re-enviar `notify`.
+
+## 11. Actualizaciones posteriores
+
+- **Fase 09 (asignación de usuarios):** se añadieron al modelo `MaintenanceSchedule` dos FK opcionales
+  a `users.User` — `assigned_engineer` (con `limit_choices_to={"role": "ingeniero", "is_active":
+  True}`) y `assigned_technician` (con `limit_choices_to={"role": "tecnico", "is_active": True}`).
+  Ambos con `on_delete=SET_NULL`. Los templates de email (`schedule_notification.txt` y `.html`)
+  ahora muestran los datos del ingeniero y técnico asignados cuando están definidos. Filtros nuevos
+  en `MaintenanceScheduleFilter`: `assigned_engineer`, `assigned_technician`, `unassigned`. Detalle
+  del diseño y razones en [`09-user-assignment.md`](09-user-assignment.md).

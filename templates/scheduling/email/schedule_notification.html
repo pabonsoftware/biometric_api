@@ -9,6 +9,20 @@
     <tr><th align="left">Marca / Modelo</th><td>{{ equipment.brand }} {{ equipment.model }}</td></tr>
     <tr><th align="left">Tipo</th><td>{{ schedule.get_kind_display }}</td></tr>
     <tr><th align="left">Fecha</th><td>{{ schedule.scheduled_date|date:"d/m/Y" }}</td></tr>
+    {% if schedule.assigned_engineer %}
+    <tr>
+      <th align="left">Ingeniero</th>
+      <td>{{ schedule.assigned_engineer.first_name }} {{ schedule.assigned_engineer.last_name }}
+        ({{ schedule.assigned_engineer.email }})</td>
+    </tr>
+    {% endif %}
+    {% if schedule.assigned_technician %}
+    <tr>
+      <th align="left">Técnico</th>
+      <td>{{ schedule.assigned_technician.first_name }} {{ schedule.assigned_technician.last_name }}
+        ({{ schedule.assigned_technician.email }})</td>
+    </tr>
+    {% endif %}
   </table>
   {% if schedule.notes %}
     <p><strong>Notas:</strong></p>

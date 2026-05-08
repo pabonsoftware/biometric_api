@@ -10,6 +10,9 @@ class MaintenanceScheduleFilter(filters.FilterSet):
     is_completed = filters.BooleanFilter(field_name="is_completed")
     scheduled_date_after = filters.DateFilter(field_name="scheduled_date", lookup_expr="gte")
     scheduled_date_before = filters.DateFilter(field_name="scheduled_date", lookup_expr="lte")
+    assigned_engineer = filters.NumberFilter(field_name="assigned_engineer_id")
+    assigned_technician = filters.NumberFilter(field_name="assigned_technician_id")
+    unassigned = filters.BooleanFilter(method="filter_unassigned")
 
     class Meta:
         model = MaintenanceSchedule
@@ -20,4 +23,18 @@ class MaintenanceScheduleFilter(filters.FilterSet):
             "is_completed",
             "scheduled_date_after",
             "scheduled_date_before",
+            "assigned_engineer",
+            "assigned_technician",
+            "unassigned",
         )
+
+    def filter_unassigned(self, queryset, name, value):
+        if value is True:
+            return queryset.filter(
+                assigned_engineer__isnull=True, assigned_technician__isnull=True
+            )
+        if value is False:
+            return queryset.exclude(
+                assigned_engineer__isnull=True, assigned_technician__isnull=True
+            )
+        return queryset

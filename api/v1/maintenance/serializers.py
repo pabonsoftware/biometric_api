@@ -3,8 +3,23 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.maintenance.models import MaintenanceRecord
+from apps.users.models import User
 
 MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+class _AssignedUserSerializer(serializers.ModelSerializer):
+    """Representación mínima del usuario asignado (read-only, anidada)."""
+
+    full_name = serializers.SerializerMethodField()
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "full_name", "role", "role_display")
+
+    def get_full_name(self, obj: User) -> str:
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 
 class MaintenanceRecordSerializer(serializers.ModelSerializer):
@@ -18,6 +33,13 @@ class MaintenanceRecordSerializer(serializers.ModelSerializer):
     cost = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, allow_null=True
     )
+    # Representación anidada (read-only) + campo plano para escribir.
+    assigned_engineer_detail = _AssignedUserSerializer(
+        source="assigned_engineer", read_only=True
+    )
+    assigned_technician_detail = _AssignedUserSerializer(
+        source="assigned_technician", read_only=True
+    )
 
     class Meta:
         model = MaintenanceRecord
@@ -29,13 +51,24 @@ class MaintenanceRecordSerializer(serializers.ModelSerializer):
             "date",
             "description",
             "technician",
+            "assigned_engineer",
+            "assigned_engineer_detail",
+            "assigned_technician",
+            "assigned_technician_detail",
             "cost",
             "pdf_file",
             "pdf_file_url",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "pdf_file_url", "created_at", "updated_at")
+        read_only_fields = (
+            "id",
+            "pdf_file_url",
+            "assigned_engineer_detail",
+            "assigned_technician_detail",
+            "created_at",
+            "updated_at",
+        )
 
     def get_pdf_file_url(self, obj: MaintenanceRecord) -> str | None:
         if not obj.pdf_file:
@@ -66,6 +99,32 @@ class MaintenanceRecordSerializer(serializers.ModelSerializer):
     def validate_pdf_file(self, value):
         if value and value.size > MAX_PDF_BYTES:
             raise serializers.ValidationError(_("El archivo no puede superar los 10 MB."))
+        return value
+
+    def validate_assigned_engineer(self, value):
+        if value is None:
+            return value
+        if not value.is_active:
+            raise serializers.ValidationError(
+                _("El usuario asignado no está activo.")
+            )
+        if value.role != User.Role.INGENIERO:
+            raise serializers.ValidationError(
+                _("El usuario asignado debe tener el rol de ingeniero biomédico.")
+            )
+        return value
+
+    def validate_assigned_technician(self, value):
+        if value is None:
+            return value
+        if not value.is_active:
+            raise serializers.ValidationError(
+                _("El usuario asignado no está activo.")
+            )
+        if value.role != User.Role.TECNICO:
+            raise serializers.ValidationError(
+                _("El usuario asignado debe tener el rol de técnico.")
+            )
         return value
 
     def update(self, instance, validated_data):

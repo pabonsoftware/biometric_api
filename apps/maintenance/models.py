@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import FileExtensionValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -29,6 +30,24 @@ class MaintenanceRecord(models.Model):
     date = models.DateField(_("Fecha"), db_index=True)
     description = models.TextField(_("Descripción"))
     technician = models.CharField(_("Técnico"), max_length=120, blank=True)
+    assigned_engineer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="engineering_records",
+        limit_choices_to={"role": "ingeniero", "is_active": True},
+        verbose_name=_("Ingeniero asignado"),
+    )
+    assigned_technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="technician_records",
+        limit_choices_to={"role": "tecnico", "is_active": True},
+        verbose_name=_("Técnico asignado"),
+    )
     cost = models.DecimalField(
         _("Costo"),
         max_digits=10,
@@ -56,6 +75,8 @@ class MaintenanceRecord(models.Model):
             models.Index(fields=["equipment", "-date"], name="maint_eq_date_idx"),
             models.Index(fields=["kind"], name="maint_kind_idx"),
             models.Index(fields=["date"], name="maint_date_idx"),
+            models.Index(fields=["assigned_engineer"], name="maint_engineer_idx"),
+            models.Index(fields=["assigned_technician"], name="maint_technician_idx"),
         ]
 
     def __str__(self) -> str:

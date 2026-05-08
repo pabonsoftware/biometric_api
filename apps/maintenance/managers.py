@@ -23,9 +23,21 @@ class MaintenanceRecordQuerySet(models.QuerySet):
     def in_range(self, start, end) -> "MaintenanceRecordQuerySet":
         return self.filter(date__gte=start, date__lte=end)
 
+    def assigned_to_engineer(self, user_id: int) -> "MaintenanceRecordQuerySet":
+        return self.filter(assigned_engineer_id=user_id)
+
+    def assigned_to_technician(self, user_id: int) -> "MaintenanceRecordQuerySet":
+        return self.filter(assigned_technician_id=user_id)
+
+    def unassigned(self) -> "MaintenanceRecordQuerySet":
+        return self.filter(assigned_engineer__isnull=True, assigned_technician__isnull=True)
+
 
 class MaintenanceRecordManager(models.Manager.from_queryset(MaintenanceRecordQuerySet)):
     def get_queryset(self) -> MaintenanceRecordQuerySet:
         return MaintenanceRecordQuerySet(self.model, using=self._db).select_related(
-            "equipment", "equipment__branch"
+            "equipment",
+            "equipment__branch",
+            "assigned_engineer",
+            "assigned_technician",
         )

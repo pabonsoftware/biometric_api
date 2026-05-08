@@ -8,7 +8,9 @@ Se ha programado un mantenimiento para el siguiente equipo:
   Marca/Modelo:   {{ equipment.brand }} {{ equipment.model }}
   Tipo:           {{ schedule.get_kind_display }}
   Fecha:          {{ schedule.scheduled_date|date:"d/m/Y" }}
-
+{% if schedule.assigned_engineer %}  Ingeniero:      {{ schedule.assigned_engineer.first_name }} {{ schedule.assigned_engineer.last_name }} ({{ schedule.assigned_engineer.email }})
+{% endif %}{% if schedule.assigned_technician %}  Técnico:        {{ schedule.assigned_technician.first_name }} {{ schedule.assigned_technician.last_name }} ({{ schedule.assigned_technician.email }})
+{% endif %}
 {% if schedule.notes %}Notas:
 {{ schedule.notes }}{% endif %}
 

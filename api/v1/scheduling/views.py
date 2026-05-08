@@ -17,7 +17,17 @@ class MaintenanceScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = MaintenanceScheduleSerializer
     permission_classes = (IsAuthenticated,)
     filterset_class = MaintenanceScheduleFilter
-    search_fields = ("notes", "equipment__asset_tag", "equipment__name")
+    search_fields = (
+        "notes",
+        "equipment__asset_tag",
+        "equipment__name",
+        "assigned_engineer__username",
+        "assigned_engineer__first_name",
+        "assigned_engineer__last_name",
+        "assigned_technician__username",
+        "assigned_technician__first_name",
+        "assigned_technician__last_name",
+    )
     ordering_fields = ("scheduled_date", "created_at")
     ordering = ("scheduled_date",)
 
