@@ -1,0 +1,1566 @@
+{
+  "info": {
+    "_postman_id": "b10m37c0-0000-4000-8000-000000000001",
+    "name": "Biometric API",
+    "description": "Colección oficial del Biometric API (gestión de equipos biomédicos).\n\nIncluye:\n- Auth (JWT)\n- Users (CRUD + me + set_password) — fase 02.5\n- Branches (CRUD) — fase 02\n- Catalog (Brands + EquipmentModels CRUD) — fase 08\n- Equipment (CRUD + by-asset-tag + regenerate-qr + history) — fase 03 / actualizado en fase 08 (`equipment_model` FK + `risk_class`)\n- Maintenance (CRUD historial + upload PDF) — fase 04 / fase 09 (asignación opcional de ingeniero/técnico)\n- Scheduling (CRUD agendamientos + complete + notify por email async) — fase 05 / fase 09 (asignación opcional de ingeniero/técnico, datos del asignado en el correo)\n- Failures (CRUD reportes de falla + resolve) — fase 06\n\nCredencial de superusuario por defecto (creada manualmente):\n- username: admin\n- password: AdminPass123!\n\nFlujo recomendado: 1) `Auth › Login` para poblar `access_token`. 2) `Branches › Create` para poblar `branch_id`. 3) `Catalog › Brands › Create` para poblar `brand_id`. 4) `Catalog › Equipment Models › Create` para poblar `equipment_model_id`. 5) `Equipment › Create` para poblar `equipment_id`. 6) (opcional, fase 09) crear un user con `role=ingeniero` y otro con `role=tecnico` y poblar `engineer_user_id` y `technician_user_id`. 7) `Maintenance › Create` para poblar `maintenance_record_id`. 8) `Scheduling › Create` para poblar `schedule_id`. 9) `Failures › Create` para poblar `failure_id`. 10) probar el resto.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",      "value": "http://localhost:8000", "type": "string" },
+    { "key": "access_token",  "value": "",                       "type": "string" },
+    { "key": "refresh_token", "value": "",                       "type": "string" },
+    { "key": "user_id",       "value": "",                       "type": "string" },
+    { "key": "branch_id",     "value": "",                       "type": "string" },
+    { "key": "brand_id",      "value": "",                       "type": "string" },
+    { "key": "equipment_model_id", "value": "",                  "type": "string" },
+    { "key": "equipment_id",  "value": "",                       "type": "string" },
+    { "key": "asset_tag_sample", "value": "EQ-0001",             "type": "string" },
+    { "key": "maintenance_record_id", "value": "",               "type": "string" },
+    { "key": "schedule_id",   "value": "",                       "type": "string" },
+    { "key": "failure_id",    "value": "",                       "type": "string" },
+    { "key": "engineer_user_id",   "value": "",                  "type": "string" },
+    { "key": "technician_user_id", "value": "",                  "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (token obtain)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", ""]
+            },
+            "description": "Devuelve `access` y `refresh`. El test guarda ambos en variables de colección."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const setAll = (key, value) => {",
+                  "  if (!value) return;",
+                  "  pm.collectionVariables.set(key, value);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set(key, value);",
+                  "  pm.globals.set(key, value);",
+                  "};",
+                  "setAll('access_token', body.access);",
+                  "setAll('refresh_token', body.refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", "refresh", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "if (body.access) {",
+                  "  pm.collectionVariables.set('access_token', body.access);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set('access_token', body.access);",
+                  "  pm.globals.set('access_token', body.access);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/token/verify/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "token", "verify", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Me (current profile)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "me", ""]
+            }
+          }
+        },
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/?ordering=username",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", ""],
+              "query": [
+                { "key": "ordering", "value": "username" },
+                { "key": "role",      "value": "ingeniero", "disabled": true },
+                { "key": "is_active", "value": "true",      "disabled": true },
+                { "key": "search",    "value": "juan",      "disabled": true }
+              ]
+            },
+            "description": "Solo `superadmin` y `admin` pueden listar."
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"ingeniero1\",\n  \"email\": \"ingeniero1@biometric.test\",\n  \"first_name\": \"María\",\n  \"last_name\": \"Gómez\",\n  \"role\": \"ingeniero\",\n  \"phone\": \"+57 300 555 1111\",\n  \"password\": \"IngePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", ""]
+            },
+            "description": "Roles válidos: `superadmin`, `admin`, `coordinador`, `ingeniero`, `tecnico`. Solo un `superadmin` puede crear otro `superadmin`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('user_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+57 300 999 0000\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"ingeniero1\",\n  \"email\": \"ingeniero1@biometric.test\",\n  \"first_name\": \"María Lucía\",\n  \"last_name\": \"Gómez\",\n  \"role\": \"ingeniero\",\n  \"phone\": \"+57 300 999 0000\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Set password (self)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"IngePass123!\",\n  \"new_password\": \"IngeNueva456!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/set_password/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", "set_password", ""]
+            },
+            "description": "El propio usuario debe enviar `current_password` y `new_password`."
+          }
+        },
+        {
+          "name": "Set password (admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"AdminReseteo789!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/set_password/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", "set_password", ""]
+            },
+            "description": "Un superadmin/admin puede cambiar la contraseña de otro sin enviar `current_password`."
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/{{user_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "users", "{{user_id}}", ""]
+            },
+            "description": "No se puede eliminar la propia cuenta (409)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Branches",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/branches/?ordering=name",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "branches", ""],
+              "query": [
+                { "key": "ordering",  "value": "name" },
+                { "key": "city",      "value": "Bogota", "disabled": true },
+                { "key": "is_active", "value": "true",   "disabled": true },
+                { "key": "search",    "value": "Norte",  "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sede Norte\",\n  \"address\": \"Calle 100 #15-20\",\n  \"city\": \"Bogota\",\n  \"phone\": \"+57 300 555 1234\",\n  \"email\": \"norte@clinic.test\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/branches/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "branches", ""]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('branch_id', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/branches/{{branch_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "branches", "{{branch_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/branches/{{branch_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "branches", "{{branch_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/branches/{{branch_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "branches", "{{branch_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "description": "Catálogo de marcas y modelos de equipos biomédicos (fase 08). `Brand` agrupa modelos; `EquipmentModel` pertenece a una marca y es referenciado por `Equipment.equipment_model` (FK obligatoria). DELETE protegido (PROTECT) en ambos: 409 si la marca tiene modelos o el modelo tiene equipos. Búsqueda case-insensitive y unicidad case-insensitive en `name` (por marca para `EquipmentModel`).",
+      "item": [
+        {
+          "name": "Brands",
+          "item": [
+            {
+              "name": "List",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/?ordering=name",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", ""],
+                  "query": [
+                    { "key": "ordering",  "value": "name" },
+                    { "key": "is_active", "value": "true",   "disabled": true },
+                    { "key": "search",    "value": "Phil",   "disabled": true }
+                  ]
+                },
+                "description": "Filtros: `is_active`. Search: `name`. Ordering: `name`, `created_at` (default `name`)."
+              }
+            },
+            {
+              "name": "Create",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Philips\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", ""]
+                },
+                "description": "Crea una marca.\n\n- `name` se normaliza (whitespace colapsado) y la unicidad es case-insensitive.\n- `is_active` es opcional (default `true`); si está en `false` no se podrán crear nuevos modelos asociados."
+              },
+              "response": [
+                {
+                  "name": "Activa (default)",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [{ "key": "Content-Type", "value": "application/json" }],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"Philips\"\n}"
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v1/catalog/brands/",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "v1", "catalog", "brands", ""]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "cookie": [],
+                  "body": "{\n  \"id\": 3,\n  \"name\": \"Philips\",\n  \"is_active\": true,\n  \"created_at\": \"2026-05-07T09:00:00-05:00\",\n  \"updated_at\": \"2026-05-07T09:00:00-05:00\"\n}"
+                },
+                {
+                  "name": "Inactiva al crear",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [{ "key": "Content-Type", "value": "application/json" }],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"name\": \"GE Healthcare\",\n  \"is_active\": false\n}"
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v1/catalog/brands/",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "v1", "catalog", "brands", ""]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "cookie": [],
+                  "body": "{\n  \"id\": 4,\n  \"name\": \"GE Healthcare\",\n  \"is_active\": false,\n  \"created_at\": \"2026-05-07T09:05:00-05:00\",\n  \"updated_at\": \"2026-05-07T09:05:00-05:00\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) {",
+                      "  pm.collectionVariables.set('brand_id', body.id);",
+                      "  if (pm.environment && pm.environment.name) pm.environment.set('brand_id', body.id);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update (PATCH)",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"is_active\": false\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                },
+                "description": "Marcar `is_active=false` impide crear nuevos modelos con esta marca (validación serializer)."
+              }
+            },
+            {
+              "name": "Delete",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/brands/{{brand_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "brands", "{{brand_id}}", ""]
+                },
+                "description": "Borra la marca. Devuelve 409 con `{\"detail\": \"No se puede eliminar la marca porque tiene modelos asociados.\"}` si tiene `EquipmentModel` asociados (PROTECT)."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Equipment Models",
+          "item": [
+            {
+              "name": "List",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/?ordering=name",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""],
+                  "query": [
+                    { "key": "ordering",        "value": "name" },
+                    { "key": "brand",           "value": "{{brand_id}}", "disabled": true },
+                    { "key": "is_active",       "value": "true",         "disabled": true },
+                    { "key": "brand_is_active", "value": "true",         "disabled": true },
+                    { "key": "search",          "value": "MX450",        "disabled": true }
+                  ]
+                },
+                "description": "Filtros: `brand` (id), `is_active`, `brand_is_active`. Search: `name`, `description`, `brand__name`. Ordering: `name`, `brand__name`, `created_at` (default `brand__name,name`)."
+              }
+            },
+            {
+              "name": "Create",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"brand\": {{brand_id}},\n  \"name\": \"MX450\",\n  \"description\": \"Monitor multiparámetro de signos vitales.\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", ""]
+                },
+                "description": "Crea un modelo de equipo.\n\n- `brand` (FK a `/catalog/brands/`) y `name` son obligatorios.\n- `description` es opcional.\n- La unicidad de `name` es case-insensitive y se aplica por marca.\n- La marca debe estar activa: si `brand.is_active=false` la API responde 400.\n- La response expande `brand_name` (read-only)."
+              },
+              "response": [
+                {
+                  "name": "Con descripción",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [{ "key": "Content-Type", "value": "application/json" }],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"brand\": 3,\n  \"name\": \"MX450\",\n  \"description\": \"Monitor multiparámetro de signos vitales.\"\n}"
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "v1", "catalog", "equipment-models", ""]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "cookie": [],
+                  "body": "{\n  \"id\": 7,\n  \"brand\": 3,\n  \"brand_name\": \"Philips\",\n  \"name\": \"MX450\",\n  \"description\": \"Monitor multiparámetro de signos vitales.\",\n  \"is_active\": true,\n  \"created_at\": \"2026-05-07T09:10:00-05:00\",\n  \"updated_at\": \"2026-05-07T09:10:00-05:00\"\n}"
+                },
+                {
+                  "name": "Sin descripción",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [{ "key": "Content-Type", "value": "application/json" }],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"brand\": 3,\n  \"name\": \"IntelliVue MX40\"\n}"
+                    },
+                    "url": {
+                      "raw": "{{base_url}}/api/v1/catalog/equipment-models/",
+                      "host": ["{{base_url}}"],
+                      "path": ["api", "v1", "catalog", "equipment-models", ""]
+                    }
+                  },
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "cookie": [],
+                  "body": "{\n  \"id\": 8,\n  \"brand\": 3,\n  \"brand_name\": \"Philips\",\n  \"name\": \"IntelliVue MX40\",\n  \"description\": \"\",\n  \"is_active\": true,\n  \"created_at\": \"2026-05-07T09:11:00-05:00\",\n  \"updated_at\": \"2026-05-07T09:11:00-05:00\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json();",
+                      "if (body.id) {",
+                      "  pm.collectionVariables.set('equipment_model_id', body.id);",
+                      "  if (pm.environment && pm.environment.name) pm.environment.set('equipment_model_id', body.id);",
+                      "}",
+                      "pm.test('brand_name expandido', () => pm.expect(body.brand_name).to.be.a('string').and.not.empty);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Retrieve",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Update (PATCH)",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Monitor multiparámetro de signos vitales (revisado).\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                }
+              }
+            },
+            {
+              "name": "Delete",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/catalog/equipment-models/{{equipment_model_id}}/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "catalog", "equipment-models", "{{equipment_model_id}}", ""]
+                },
+                "description": "Borra el modelo. Devuelve 409 con `{\"detail\": \"No se puede eliminar el modelo porque tiene equipos asociados.\"}` si tiene `Equipment` asociados (PROTECT)."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Equipment",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/?ordering=name",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", ""],
+              "query": [
+                { "key": "ordering",             "value": "name" },
+                { "key": "branch",               "value": "{{branch_id}}",          "disabled": true },
+                { "key": "status",               "value": "ACTIVE",                 "disabled": true },
+                { "key": "equipment_model",      "value": "{{equipment_model_id}}", "disabled": true },
+                { "key": "brand",                "value": "{{brand_id}}",           "disabled": true },
+                { "key": "risk_class",           "value": "IIB",                    "disabled": true },
+                { "key": "risk_class__isnull",   "value": "true",                   "disabled": true },
+                { "key": "purchase_date_after",  "value": "2024-01-01",             "disabled": true },
+                { "key": "purchase_date_before", "value": "2024-12-31",             "disabled": true },
+                { "key": "search",               "value": "MX450",                  "disabled": true }
+              ]
+            },
+            "description": "Filtros: `branch`, `status`, `equipment_model` (id), `brand` (id, vía `equipment_model__brand`), `risk_class` (`I`, `IIA`, `IIB`, `III`), `risk_class__isnull` (dashboard de pendientes de clasificar), `purchase_date_after`, `purchase_date_before`. Search: `name`, `asset_tag`, `equipment_model__name`, `equipment_model__brand__name`. Ordering: `name`, `purchase_date`, `created_at` (default `name`)."
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"equipment_model\": {{equipment_model_id}},\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\",\n  \"risk_class\": \"IIB\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", ""]
+            },
+            "description": "Genera el QR automáticamente. La response trae `qr_code_url` apuntando al PNG, además de los read-only `equipment_model_name` y `brand_name`. `equipment_model` es FK obligatoria a `/catalog/equipment-models/`. `risk_class` es opcional (`I`, `IIA`, `IIB`, `III`); omitir el campo lo deja `null` (pendiente de clasificar)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "  pm.collectionVariables.set('equipment_id', body.id);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set('equipment_id', body.id);",
+                  "}",
+                  "pm.test('qr_code_url presente', () => pm.expect(body.qr_code_url).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "By asset tag",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/by-asset-tag/{{asset_tag_sample}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "by-asset-tag", "{{asset_tag_sample}}", ""]
+            },
+            "description": "Resolución case-insensitive por `asset_tag`."
+          }
+        },
+        {
+          "name": "Regenerate QR",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/regenerate-qr/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", "regenerate-qr", ""]
+            },
+            "description": "Reemplaza el archivo del QR. Útil tras cambiar `FRONTEND_BASE_URL`."
+          }
+        },
+        {
+          "name": "History (maintenance records)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/history/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", "history", ""]
+            },
+            "description": "Historial paginado de mantenimientos del equipo, ordenado por `-date`. Solo retorna registros del equipo solicitado. 404 si el equipo no existe."
+          }
+        },
+        {
+          "name": "Update (PATCH status)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_MAINTENANCE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", ""]
+            },
+            "description": "Estados válidos: `ACTIVE`, `INACTIVE`, `IN_MAINTENANCE`, `IN_REPAIR`."
+          }
+        },
+        {
+          "name": "Update (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Monitor de signos vitales\",\n  \"asset_tag\": \"{{asset_tag_sample}}\",\n  \"equipment_model\": {{equipment_model_id}},\n  \"branch\": {{branch_id}},\n  \"location\": \"UCI - cama 3\",\n  \"purchase_date\": \"2024-08-15\",\n  \"status\": \"ACTIVE\",\n  \"risk_class\": \"IIB\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/equipment/{{equipment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "equipment", "{{equipment_id}}", ""]
+            },
+            "description": "Borra el equipo y elimina el archivo del QR del storage. La sede no se puede borrar mientras tenga equipos (PROTECT)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Maintenance",
+      "description": "Historial de mantenimientos preventivos, correctivos y reparaciones (fase 04). Soporta carga opcional de PDF en `pdf_file` (multipart). Tipos válidos: `PREVENTIVE`, `CORRECTIVE`, `REPAIR`.\n\nFase 09: cada registro puede asignarse opcionalmente a un usuario `assigned_engineer` (rol `ingeniero`) y a un `assigned_technician` (rol `tecnico`). La respuesta incluye `assigned_engineer_detail` y `assigned_technician_detail` con datos del usuario.",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/?ordering=-date",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", ""],
+              "query": [
+                { "key": "ordering",            "value": "-date" },
+                { "key": "equipment",           "value": "{{equipment_id}}", "disabled": true },
+                { "key": "branch",              "value": "{{branch_id}}",    "disabled": true },
+                { "key": "kind",                "value": "PREVENTIVE",       "disabled": true },
+                { "key": "date_after",          "value": "2026-01-01",       "disabled": true },
+                { "key": "date_before",         "value": "2026-12-31",       "disabled": true },
+                { "key": "assigned_engineer",   "value": "{{engineer_user_id}}",   "disabled": true },
+                { "key": "assigned_technician", "value": "{{technician_user_id}}", "disabled": true },
+                { "key": "unassigned",          "value": "true",             "disabled": true },
+                { "key": "search",              "value": "calibracion",      "disabled": true }
+              ]
+            },
+            "description": "Filtros: `equipment`, `branch` (vía `equipment__branch_id`), `kind`, `date_after`, `date_before`, `assigned_engineer` (id), `assigned_technician` (id), `unassigned` (bool — `true` solo sin asignación). Search: `description`, `technician`, `equipment__asset_tag`, y nombres de los asignados (`assigned_engineer__first_name`, etc.). Ordering: `date`, `created_at`, `cost` (default `-date`)."
+          }
+        },
+        {
+          "name": "List filtered by assignment (fase 09)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/?assigned_engineer={{engineer_user_id}}&assigned_technician={{technician_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", ""],
+              "query": [
+                { "key": "assigned_engineer",   "value": "{{engineer_user_id}}" },
+                { "key": "assigned_technician", "value": "{{technician_user_id}}" },
+                { "key": "unassigned",          "value": "false", "disabled": true }
+              ]
+            },
+            "description": "Filtra registros asignados al ingeniero `engineer_user_id` y/o al técnico `technician_user_id`. Cambia a `?unassigned=true` para obtener solo los registros sin ningún asignado."
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"kind\": \"PREVENTIVE\",\n  \"date\": \"2026-04-15\",\n  \"description\": \"Limpieza general y calibración trimestral.\",\n  \"cost\": \"150000.00\",\n  \"assigned_engineer\": {{engineer_user_id}},\n  \"assigned_technician\": {{technician_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", ""]
+            },
+            "description": "Crea un registro histórico de mantenimiento.\n\n- `equipment`, `kind` (`PREVENTIVE` | `CORRECTIVE` | `REPAIR`), `date` (no futura) y `description` son obligatorios.\n- `cost` es opcional, debe ser >= 0.\n- `assigned_engineer` (rol `ingeniero`) y `assigned_technician` (rol `tecnico`) son opcionales (fase 09); si los IDs no corresponden al rol o el user está inactivo se devuelve 400.\n- Si necesitas adjuntar un PDF, usa `multipart/form-data` con el campo `pdf_file` (extensión `.pdf`, máx 10 MB) — ver el example **Con PDF (multipart)**.\n\nLa respuesta incluye `pdf_file_url` (o `null`) y, cuando hay asignados, `assigned_engineer_detail` y `assigned_technician_detail` con `id`, `username`, `full_name`, `role`, `role_display`."
+          },
+          "response": [
+            {
+              "name": "Sin PDF (mínimo)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"kind\": \"PREVENTIVE\",\n  \"date\": \"2026-04-15\",\n  \"description\": \"Limpieza general y calibración trimestral.\",\n  \"cost\": \"150000.00\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 12,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"kind\": \"PREVENTIVE\",\n  \"date\": \"2026-04-15\",\n  \"description\": \"Limpieza general y calibración trimestral.\",\n  \"technician\": \"\",\n  \"cost\": \"150000.00\",\n  \"pdf_file_url\": null,\n  \"assigned_engineer\": null,\n  \"assigned_engineer_detail\": null,\n  \"assigned_technician\": null,\n  \"assigned_technician_detail\": null,\n  \"created_at\": \"2026-04-15T14:00:00-05:00\",\n  \"updated_at\": \"2026-04-15T14:00:00-05:00\"\n}"
+            },
+            {
+              "name": "Con asignados (fase 09)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"kind\": \"CORRECTIVE\",\n  \"date\": \"2026-04-22\",\n  \"description\": \"Cambio de batería y revisión de cables.\",\n  \"cost\": \"275000.00\",\n  \"assigned_engineer\": 5,\n  \"assigned_technician\": 8\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 13,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"kind\": \"CORRECTIVE\",\n  \"date\": \"2026-04-22\",\n  \"description\": \"Cambio de batería y revisión de cables.\",\n  \"technician\": \"\",\n  \"cost\": \"275000.00\",\n  \"pdf_file_url\": null,\n  \"assigned_engineer\": 5,\n  \"assigned_engineer_detail\": {\n    \"id\": 5,\n    \"username\": \"ingeniero1\",\n    \"full_name\": \"María Gómez\",\n    \"role\": \"ingeniero\",\n    \"role_display\": \"Ingeniero biomédico\"\n  },\n  \"assigned_technician\": 8,\n  \"assigned_technician_detail\": {\n    \"id\": 8,\n    \"username\": \"tecnico1\",\n    \"full_name\": \"Carlos Ruiz\",\n    \"role\": \"tecnico\",\n    \"role_display\": \"Técnico\"\n  },\n  \"created_at\": \"2026-04-22T09:30:00-05:00\",\n  \"updated_at\": \"2026-04-22T09:30:00-05:00\"\n}"
+            },
+            {
+              "name": "Con PDF (multipart)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "equipment",   "value": "1",                                "type": "text" },
+                    { "key": "kind",        "value": "CORRECTIVE",                       "type": "text" },
+                    { "key": "date",        "value": "2026-04-20",                       "type": "text" },
+                    { "key": "description", "value": "Cambio de batería y sensor SpO2", "type": "text" },
+                    { "key": "cost",        "value": "420000.00",                        "type": "text" },
+                    { "key": "pdf_file",    "type": "file", "src": [], "description": "Archivo .pdf (máx 10 MB)." }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 14,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"kind\": \"CORRECTIVE\",\n  \"date\": \"2026-04-20\",\n  \"description\": \"Cambio de batería y sensor SpO2\",\n  \"technician\": \"\",\n  \"cost\": \"420000.00\",\n  \"pdf_file_url\": \"http://localhost:8000/media/maintenance/14/reporte.pdf\",\n  \"assigned_engineer\": null,\n  \"assigned_engineer_detail\": null,\n  \"assigned_technician\": null,\n  \"assigned_technician_detail\": null,\n  \"created_at\": \"2026-04-20T16:10:00-05:00\",\n  \"updated_at\": \"2026-04-20T16:10:00-05:00\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "  pm.collectionVariables.set('maintenance_record_id', body.id);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set('maintenance_record_id', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/{{maintenance_record_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", "{{maintenance_record_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cost\": \"175000.00\",\n  \"assigned_engineer\": {{engineer_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/{{maintenance_record_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", "{{maintenance_record_id}}", ""]
+            },
+            "description": "Update parcial.\n\n- Envía solo los campos a modificar.\n- Para desasignar al ingeniero o al técnico envía `\"assigned_engineer\": null` (idem para `assigned_technician`).\n- Para reemplazar el PDF, envía la petición como `multipart/form-data` con el campo `pdf_file` — ver el example **Reemplazar PDF (multipart)**. El archivo anterior se elimina del storage automáticamente."
+          },
+          "response": [
+            {
+              "name": "Asignar ingeniero",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assigned_engineer\": 5\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/12/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", "12", ""]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 12,\n  \"equipment\": 1,\n  \"kind\": \"PREVENTIVE\",\n  \"date\": \"2026-04-15\",\n  \"description\": \"Limpieza general y calibración trimestral.\",\n  \"cost\": \"150000.00\",\n  \"pdf_file_url\": null,\n  \"assigned_engineer\": 5,\n  \"assigned_engineer_detail\": {\n    \"id\": 5,\n    \"username\": \"ingeniero1\",\n    \"full_name\": \"María Gómez\",\n    \"role\": \"ingeniero\",\n    \"role_display\": \"Ingeniero biomédico\"\n  },\n  \"assigned_technician\": null,\n  \"assigned_technician_detail\": null,\n  \"updated_at\": \"2026-04-15T15:00:00-05:00\"\n}"
+            },
+            {
+              "name": "Desasignar técnico (null)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assigned_technician\": null\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/12/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", "12", ""]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 12,\n  \"assigned_engineer\": 5,\n  \"assigned_technician\": null,\n  \"assigned_technician_detail\": null,\n  \"updated_at\": \"2026-04-15T15:05:00-05:00\"\n}"
+            },
+            {
+              "name": "Reemplazar PDF (multipart)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "pdf_file", "type": "file", "src": [], "description": "Nuevo PDF. El archivo anterior se borra del storage." }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/maintenance/records/12/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "maintenance", "records", "12", ""]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 12,\n  \"pdf_file_url\": \"http://localhost:8000/media/maintenance/12/reporte-v2.pdf\",\n  \"updated_at\": \"2026-04-16T08:20:00-05:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"kind\": \"PREVENTIVE\",\n  \"date\": \"2026-04-15\",\n  \"description\": \"Limpieza general y calibración trimestral (revisado).\",\n  \"technician\": \"Juan Perez\",\n  \"cost\": \"150000.00\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/{{maintenance_record_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", "{{maintenance_record_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/maintenance/records/{{maintenance_record_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "maintenance", "records", "{{maintenance_record_id}}", ""]
+            },
+            "description": "Borra el registro. El signal `pre_delete` elimina el PDF asociado del storage. El equipo no se puede borrar si tiene registros (PROTECT)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Scheduling",
+      "description": "Programación de mantenimientos futuros (fase 05). Al crear se dispara una tarea Celery (`send_schedule_notification`) que envía un correo a `MAINTENANCE_NOTIFICATION_EMAILS` y al `branch.email` si está definido. Tipos válidos: `PREVENTIVE`, `REPAIR`. En dev con `EMAIL_BACKEND=console` el correo aparece en `docker compose logs web|celery_worker`.\n\nFase 09: cada agendamiento puede asignarse opcionalmente a un usuario `assigned_engineer` (rol `ingeniero`) y a un `assigned_technician` (rol `tecnico`). Sus datos aparecen en el correo cuando están definidos.",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/?ordering=scheduled_date",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", ""],
+              "query": [
+                { "key": "ordering",              "value": "scheduled_date" },
+                { "key": "equipment",             "value": "{{equipment_id}}", "disabled": true },
+                { "key": "branch",                "value": "{{branch_id}}",    "disabled": true },
+                { "key": "kind",                  "value": "PREVENTIVE",       "disabled": true },
+                { "key": "is_completed",          "value": "false",            "disabled": true },
+                { "key": "scheduled_date_after",  "value": "2026-05-01",       "disabled": true },
+                { "key": "scheduled_date_before", "value": "2026-12-31",       "disabled": true },
+                { "key": "assigned_engineer",     "value": "{{engineer_user_id}}",   "disabled": true },
+                { "key": "assigned_technician",   "value": "{{technician_user_id}}", "disabled": true },
+                { "key": "unassigned",            "value": "true",             "disabled": true },
+                { "key": "search",                "value": "calibracion",      "disabled": true }
+              ]
+            },
+            "description": "Filtros: `equipment`, `branch`, `kind`, `is_completed`, `scheduled_date_after`, `scheduled_date_before`, `assigned_engineer` (id), `assigned_technician` (id), `unassigned` (bool — `true` solo sin asignación). Search: `notes`, `equipment__asset_tag`, `equipment__name`, y nombres de los asignados. Ordering: `scheduled_date`, `created_at` (default `scheduled_date`)."
+          }
+        },
+        {
+          "name": "List filtered by assignment (fase 09)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/?assigned_engineer={{engineer_user_id}}&is_completed=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", ""],
+              "query": [
+                { "key": "assigned_engineer", "value": "{{engineer_user_id}}" },
+                { "key": "is_completed",      "value": "false" },
+                { "key": "unassigned",        "value": "true",  "disabled": true }
+              ]
+            },
+            "description": "Lista los agendamientos pendientes de un ingeniero específico. Cambia a `?unassigned=true` para listar agendamientos sin ningún asignado."
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"kind\": \"PREVENTIVE\",\n  \"scheduled_date\": \"2026-06-01\",\n  \"notes\": \"Calibración trimestral según ficha técnica.\",\n  \"assigned_engineer\": {{engineer_user_id}},\n  \"assigned_technician\": {{technician_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", ""]
+            },
+            "description": "Crea un agendamiento y dispara la tarea Celery `send_schedule_notification` en `post_save`.\n\n- `equipment`, `kind` (`PREVENTIVE` | `REPAIR`) y `scheduled_date` (no pasada) son obligatorios.\n- Si el equipo está `INACTIVE` la API devuelve 400.\n- `assigned_engineer` (rol `ingeniero`) y `assigned_technician` (rol `tecnico`) son opcionales (fase 09); si los IDs no corresponden al rol o el user está inactivo se devuelve 400. Sus datos aparecen en el correo cuando están definidos.\n- Con `CELERY_TASK_ALWAYS_EAGER=True` (dev) la tarea se ejecuta síncrona y `notified_at` queda poblado en la respuesta. Sin eager, `notified_at` puede ser `null` al crear."
+          },
+          "response": [
+            {
+              "name": "Sin asignados",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"kind\": \"PREVENTIVE\",\n  \"scheduled_date\": \"2026-06-01\",\n  \"notes\": \"Calibración trimestral según ficha técnica.\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/scheduling/maintenances/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "scheduling", "maintenances", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 21,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"equipment_name\": \"Monitor de signos vitales\",\n  \"kind\": \"PREVENTIVE\",\n  \"scheduled_date\": \"2026-06-01\",\n  \"notes\": \"Calibración trimestral según ficha técnica.\",\n  \"is_completed\": false,\n  \"notified_at\": \"2026-05-07T10:00:00-05:00\",\n  \"assigned_engineer\": null,\n  \"assigned_engineer_detail\": null,\n  \"assigned_technician\": null,\n  \"assigned_technician_detail\": null,\n  \"created_at\": \"2026-05-07T10:00:00-05:00\",\n  \"updated_at\": \"2026-05-07T10:00:00-05:00\"\n}"
+            },
+            {
+              "name": "Con asignados (fase 09)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"kind\": \"PREVENTIVE\",\n  \"scheduled_date\": \"2026-07-15\",\n  \"notes\": \"Calibración con presencia del ingeniero biomédico responsable.\",\n  \"assigned_engineer\": 5,\n  \"assigned_technician\": 8\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/scheduling/maintenances/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "scheduling", "maintenances", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 22,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"equipment_name\": \"Monitor de signos vitales\",\n  \"kind\": \"PREVENTIVE\",\n  \"scheduled_date\": \"2026-07-15\",\n  \"notes\": \"Calibración con presencia del ingeniero biomédico responsable.\",\n  \"is_completed\": false,\n  \"notified_at\": \"2026-05-07T10:01:00-05:00\",\n  \"assigned_engineer\": 5,\n  \"assigned_engineer_detail\": {\n    \"id\": 5,\n    \"username\": \"ingeniero1\",\n    \"full_name\": \"María Gómez\",\n    \"role\": \"ingeniero\",\n    \"role_display\": \"Ingeniero biomédico\"\n  },\n  \"assigned_technician\": 8,\n  \"assigned_technician_detail\": {\n    \"id\": 8,\n    \"username\": \"tecnico1\",\n    \"full_name\": \"Carlos Ruiz\",\n    \"role\": \"tecnico\",\n    \"role_display\": \"Técnico\"\n  },\n  \"created_at\": \"2026-05-07T10:01:00-05:00\",\n  \"updated_at\": \"2026-05-07T10:01:00-05:00\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "  pm.collectionVariables.set('schedule_id', body.id);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set('schedule_id', body.id);",
+                  "}",
+                  "pm.test('is_completed false al crear', () => pm.expect(body.is_completed).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Calibración + revisión sensores (actualizado).\",\n  \"assigned_engineer\": {{engineer_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", ""]
+            },
+            "description": "En update parcial la validación de `scheduled_date` no exige fecha futura (permite ajustar al marcar `is_completed`). Para desasignar al ingeniero/técnico envía `\"assigned_engineer\": null` o `\"assigned_technician\": null`."
+          }
+        },
+        {
+          "name": "Update (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"kind\": \"REPAIR\",\n  \"scheduled_date\": \"2026-07-15\",\n  \"notes\": \"Reparación programada del módulo de presión.\",\n  \"is_completed\": false,\n  \"assigned_engineer\": {{engineer_user_id}},\n  \"assigned_technician\": {{technician_user_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Complete (marcar cumplido)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/complete/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", "complete", ""]
+            },
+            "description": "Marca el agendamiento como `is_completed=true`. Devuelve la representación completa actualizada."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('is_completed true', () => pm.expect(pm.response.json().is_completed).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notify (re-encolar email)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/notify/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", "notify", ""]
+            },
+            "description": "Vuelve a encolar la tarea Celery `send_schedule_notification`. Útil si el primer envío falló (SMTP caído, etc.). Respuesta: `{\"detail\": \"notification_queued\"}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('detail notification_queued', () => pm.expect(pm.response.json().detail).to.eql('notification_queued'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/scheduling/maintenances/{{schedule_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "scheduling", "maintenances", "{{schedule_id}}", ""]
+            },
+            "description": "Cancelar = borrar. No hay flag `is_cancelled` en esta fase."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Failures",
+      "description": "Reportes de fallas de equipos biomédicos (fase 06). Severidades válidas: `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`. La consistencia entre `resolved` y `resolved_at` se valida tanto a nivel BD (CheckConstraint) como en el serializer. El action `resolve/` es idempotente.",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/?ordering=-reported_at",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", ""],
+              "query": [
+                { "key": "ordering",            "value": "-reported_at" },
+                { "key": "equipment",           "value": "{{equipment_id}}", "disabled": true },
+                { "key": "branch",              "value": "{{branch_id}}",    "disabled": true },
+                { "key": "severity",            "value": "CRITICAL",         "disabled": true },
+                { "key": "resolved",            "value": "false",            "disabled": true },
+                { "key": "reported_at_after",   "value": "2026-01-01T00:00:00Z", "disabled": true },
+                { "key": "reported_at_before",  "value": "2026-12-31T23:59:59Z", "disabled": true },
+                { "key": "search",              "value": "bateria",          "disabled": true }
+              ]
+            },
+            "description": "Filtros: `equipment`, `branch` (vía `equipment__branch_id`), `severity` (iexact), `resolved`, `reported_at_after`, `reported_at_before`. Search: `description`, `resolution_notes`, `equipment__asset_tag`. Ordering: `reported_at`, `severity`, `resolved_at` (default `-reported_at`)."
+          }
+        },
+        {
+          "name": "Create",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"description\": \"El monitor presenta lecturas erráticas de SpO2 al moverse el sensor.\",\n  \"severity\": \"HIGH\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", ""]
+            },
+            "description": "Crea un reporte de falla.\n\n- `equipment`, `description` (no vacía) y `severity` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) son obligatorios.\n- `reported_at` es opcional (default = ahora) y no puede ser futura.\n- `resolved` arranca en `false` y `resolved_at` en `null` — usa el action `resolve/` para marcarla como resuelta."
+          },
+          "response": [
+            {
+              "name": "Mínimo (severity HIGH)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"description\": \"El monitor presenta lecturas erráticas de SpO2 al moverse el sensor.\",\n  \"severity\": \"HIGH\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/failures/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "failures", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 31,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"branch_name\": \"Sede Norte\",\n  \"reported_at\": \"2026-05-07T11:00:00-05:00\",\n  \"description\": \"El monitor presenta lecturas erráticas de SpO2 al moverse el sensor.\",\n  \"severity\": \"HIGH\",\n  \"resolved\": false,\n  \"resolved_at\": null,\n  \"resolution_notes\": \"\",\n  \"created_at\": \"2026-05-07T11:00:00-05:00\",\n  \"updated_at\": \"2026-05-07T11:00:00-05:00\"\n}"
+            },
+            {
+              "name": "Con reported_at explícito (CRITICAL)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"equipment\": 1,\n  \"description\": \"Pérdida total de señal del monitor durante atención.\",\n  \"severity\": \"CRITICAL\",\n  \"reported_at\": \"2026-05-06T22:15:00Z\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/failures/",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "failures", ""]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"id\": 32,\n  \"equipment\": 1,\n  \"equipment_asset_tag\": \"EQ-0001\",\n  \"branch_name\": \"Sede Norte\",\n  \"reported_at\": \"2026-05-06T17:15:00-05:00\",\n  \"description\": \"Pérdida total de señal del monitor durante atención.\",\n  \"severity\": \"CRITICAL\",\n  \"resolved\": false,\n  \"resolved_at\": null,\n  \"resolution_notes\": \"\",\n  \"created_at\": \"2026-05-07T11:05:00-05:00\",\n  \"updated_at\": \"2026-05-07T11:05:00-05:00\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "if (body.id) {",
+                  "  pm.collectionVariables.set('failure_id', body.id);",
+                  "  if (pm.environment && pm.environment.name) pm.environment.set('failure_id', body.id);",
+                  "}",
+                  "pm.test('resolved false al crear', () => pm.expect(body.resolved).to.eql(false));",
+                  "pm.test('resolved_at null al crear', () => pm.expect(body.resolved_at).to.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retrieve",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", ""]
+            },
+            "description": "Trae también `equipment_asset_tag` y `branch_name` (read-only) para facilitar la presentación."
+          }
+        },
+        {
+          "name": "Update (PATCH severity)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"severity\": \"CRITICAL\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipment\": {{equipment_id}},\n  \"description\": \"El monitor presenta lecturas erráticas de SpO2 (revisado).\",\n  \"severity\": \"HIGH\",\n  \"resolved\": false,\n  \"resolution_notes\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", ""]
+            },
+            "description": "PUT requiere todos los campos requeridos. `resolved_at` se omite porque `resolved=false`."
+          }
+        },
+        {
+          "name": "Resolve (marcar resuelta)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution_notes\": \"Se reemplazó el sensor SpO2 y se recalibró el monitor.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/resolve/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", "resolve", ""]
+            },
+            "description": "Marca la falla como `resolved=true` y setea `resolved_at = now()`. Body opcional; si se omite, no agrega notas. Idempotente: una segunda llamada preserva `resolved_at` original."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('resolved true', () => pm.expect(body.resolved).to.eql(true));",
+                  "pm.test('resolved_at presente', () => pm.expect(body.resolved_at).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resolve (sin body)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/resolve/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", "resolve", ""]
+            },
+            "description": "Resolver sin notas. Si la falla ya estaba resuelta, `resolved_at` se preserva (idempotencia)."
+          }
+        },
+        {
+          "name": "Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/failures/{{failure_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "failures", "{{failure_id}}", ""]
+            },
+            "description": "Elimina el reporte. El equipo no se puede borrar si tiene reportes asociados (PROTECT)."
+          }
+        }
+      ]
+    }
+  ]
+}
