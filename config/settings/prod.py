@@ -5,8 +5,13 @@ Endurece la seguridad y desactiva DEBUG. Las variables sensibles deben venir
 exclusivamente de variables de entorno.
 """
 from .base import *  # noqa: F401,F403
+from .base import env
 
 DEBUG = False
+
+# Orígenes de confianza para CSRF (necesario tras un proxy HTTPS, p. ej. el
+# admin de Django sirviéndose en https://<ip>). Se leen de la variable de entorno.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
