@@ -6,3 +6,6 @@ class FailuresConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.failures"
     verbose_name = _("Reportes de falla")
+
+    def ready(self) -> None:
+        from . import signals  # noqa: F401

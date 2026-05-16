@@ -55,6 +55,26 @@ class Equipment(models.Model):
         db_index=True,
     )
     qr_code = models.FileField(_("Código QR"), upload_to="equipment/qr/", blank=True)
+    mtbf_hours = models.DecimalField(
+        _("MTBF (horas)"),
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_(
+            "Tiempo promedio entre fallas consecutivas. Recalculado automáticamente."
+        ),
+    )
+    mttr_hours = models.DecimalField(
+        _("MTTR (horas)"),
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=_(
+            "Tiempo promedio para resolver una falla. Recalculado automáticamente."
+        ),
+    )
     created_at = models.DateTimeField(_("Creado"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Actualizado"), auto_now=True)
 

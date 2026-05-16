@@ -30,6 +30,8 @@ class EquipmentSerializer(serializers.ModelSerializer):
             "risk_class",
             "qr_code",
             "qr_code_url",
+            "mtbf_hours",
+            "mttr_hours",
             "created_at",
             "updated_at",
         )
@@ -39,6 +41,8 @@ class EquipmentSerializer(serializers.ModelSerializer):
             "brand_name",
             "qr_code",
             "qr_code_url",
+            "mtbf_hours",
+            "mttr_hours",
             "created_at",
             "updated_at",
         )

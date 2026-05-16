@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 # syntax=docker/dockerfile:1.6
 
+=======
+>>>>>>> origin/main
 FROM python:3.12-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

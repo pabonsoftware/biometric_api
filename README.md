@@ -122,4 +122,3 @@ Este repositorio está en construcción incremental. El scaffolding base está l
 - [ ] Historial de fallas (CRUD)
 - [ ] Colección Postman
 - [ ] Suite completa de tests
-# FrontEquiposBiometricos

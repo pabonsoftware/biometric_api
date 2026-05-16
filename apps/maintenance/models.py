@@ -62,6 +62,14 @@ class MaintenanceRecord(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=["pdf"])],
     )
+    scheduled_maintenance = models.OneToOneField(
+        "scheduling.MaintenanceSchedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="maintenance_record",
+        verbose_name=_("Agendamiento cumplido"),
+    )
     created_at = models.DateTimeField(_("Creado"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Actualizado"), auto_now=True)
 

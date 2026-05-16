@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from apps.equipment.models import EquipmentStatus
+from apps.maintenance.models import MaintenanceRecord
 from apps.scheduling.models import MaintenanceSchedule
 from apps.users.models import User
 
@@ -21,6 +22,14 @@ class _AssignedUserSerializer(serializers.ModelSerializer):
         return f"{obj.first_name} {obj.last_name}".strip()
 
 
+class _MaintenanceRecordMiniSerializer(serializers.ModelSerializer):
+    """Representación mínima del mantenimiento que cumplió un agendamiento."""
+
+    class Meta:
+        model = MaintenanceRecord
+        fields = ("id", "kind", "date", "description", "cost")
+
+
 class MaintenanceScheduleSerializer(serializers.ModelSerializer):
     equipment_asset_tag = serializers.CharField(source="equipment.asset_tag", read_only=True)
     branch_name = serializers.CharField(source="equipment.branch.name", read_only=True)
@@ -30,6 +39,8 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
     assigned_technician_detail = _AssignedUserSerializer(
         source="assigned_technician", read_only=True
     )
+    maintenance_record = serializers.SerializerMethodField()
+    maintenance_record_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceSchedule
@@ -47,6 +58,8 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             "assigned_technician_detail",
             "notified_at",
             "is_completed",
+            "maintenance_record",
+            "maintenance_record_detail",
             "created_at",
             "updated_at",
         )
@@ -57,9 +70,26 @@ class MaintenanceScheduleSerializer(serializers.ModelSerializer):
             "assigned_engineer_detail",
             "assigned_technician_detail",
             "notified_at",
+            "maintenance_record",
+            "maintenance_record_detail",
             "created_at",
             "updated_at",
         )
+
+    def _record(self, obj):
+        # Acceso seguro al reverso OneToOne: si no hay vínculo, devuelve None
+        # en lugar de levantar RelatedObjectDoesNotExist.
+        return getattr(obj, "maintenance_record", None)
+
+    def get_maintenance_record(self, obj):
+        record = self._record(obj)
+        return record.id if record is not None else None
+
+    def get_maintenance_record_detail(self, obj):
+        record = self._record(obj)
+        if record is None:
+            return None
+        return _MaintenanceRecordMiniSerializer(record, context=self.context).data
 
     def validate_equipment(self, value):
         if value.status == EquipmentStatus.INACTIVE:
