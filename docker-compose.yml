@@ -1,31 +1,25 @@
-services:
-  db:
-    image: postgres:16-alpine
-    container_name: biometric_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-biometric_db}
-      POSTGRES_USER: ${POSTGRES_USER:-biometric_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-biometric_pass}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-biometric_user} -d ${POSTGRES_DB:-biometric_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+# =========================================================
+# Stack de PRODUCCIÓN.
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Diferencias con docker-compose.yml (dev):
+#   - imagen target "prod" (gunicorn, requirements/prod.txt, usuario no-root)
+#   - sin código por volumen, sin Flower ni Mailpit, sin debug-toolbar
+#   - base de datos en AWS RDS (PostgreSQL gestionado, fuera del stack)
+#   - redis interno, sin puerto publicado al host
+#   - nginx como reverse proxy + TLS + estáticos
+# =========================================================
 
+services:
   redis:
     image: redis:7-alpine
-    container_name: biometric_redis
+    container_name: biometric_redis_prod
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
       retries: 10
 
@@ -33,72 +27,98 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: prod
       args:
-        REQUIREMENTS: dev
-    container_name: biometric_web
+        REQUIREMENTS: prod
+    image: biometric_api:prod
+    container_name: biometric_web_prod
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.prod
+    environment:
+      RUN_MIGRATIONS: "true"
+      COLLECT_STATIC: "true"
     volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
+      - static_data:/app/staticfiles
+      - media_data:/app/media
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
-    command: python manage.py runserver 0.0.0.0:8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/admin/login/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   celery_worker:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: prod
       args:
-        REQUIREMENTS: dev
-    container_name: biometric_celery_worker
+        REQUIREMENTS: prod
+    image: biometric_api:prod
+    container_name: biometric_celery_worker_prod
     restart: unless-stopped
     env_file:
-      - .env
-    volumes:
-      - .:/app
+      - .env.prod
+    environment:
+      # La web es la única que migra/recoge estáticos; evita carreras.
+      RUN_MIGRATIONS: "false"
+      COLLECT_STATIC: "false"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A config worker -l info
+      web:
+        condition: service_started
+    command: celery -A config worker -l info --concurrency=4
 
-  # UI de monitoreo de Celery (workers, tasks, colas) — http://localhost:5555
-  flower:
+  celery_beat:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: prod
       args:
-        REQUIREMENTS: dev
-    container_name: biometric_flower
+        REQUIREMENTS: prod
+    image: biometric_api:prod
+    container_name: biometric_celery_beat_prod
     restart: unless-stopped
     env_file:
-      - .env
-    volumes:
-      - .:/app
-    ports:
-      - "5555:5555"
+      - .env.prod
+    environment:
+      RUN_MIGRATIONS: "false"
+      COLLECT_STATIC: "false"
     depends_on:
       redis:
         condition: service_healthy
-      celery_worker:
+      web:
         condition: service_started
-    command: celery -A config flower --port=5555 --address=0.0.0.0
+    command: celery -A config beat -l info
 
-  # SMTP fake con UI web para ver correos en dev — http://localhost:8025
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: biometric_mailpit
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: biometric_nginx_prod
     restart: unless-stopped
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media:ro
+      - certbot_webroot:/var/www/certbot
+      # Build de la SPA (frontend). Para actualizar el front, reemplaza
+      # el contenido de /var/www/html/dist en el host (no requiere reiniciar).
+      - /var/www/html/dist:/usr/share/nginx/html:ro
+    depends_on:
+      web:
+        condition: service_healthy
 
 volumes:
-  postgres_data:
+  redis_data:
+  static_data:
+  media_data:
+  certbot_webroot:
+

@@ -23,3 +23,4 @@ if [ "${COLLECT_STATIC:-false}" = "true" ]; then
 fi
 
 exec "$@"
+
