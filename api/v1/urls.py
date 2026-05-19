@@ -35,11 +35,8 @@ urlpatterns = [
         "failures/",
         include(("api.v1.failures.urls", "failures"), namespace="failures"),
     ),
-<<<<<<< HEAD
-=======
     path(
         "dashboard/",
         include(("api.v1.dashboard.urls", "dashboard"), namespace="dashboard"),
     ),
->>>>>>> origin/main
 ]
