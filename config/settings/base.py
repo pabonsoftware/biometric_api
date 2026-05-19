@@ -206,8 +206,10 @@ AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default="") or None
 AWS_QUERYSTRING_AUTH = env("AWS_QUERYSTRING_AUTH")
 AWS_DEFAULT_ACL = None  # Buckets modernos: ACLs deshabilitadas, se usan policies
 
-# Storage backend solo si hay credenciales configuradas (default a local en dev sin S3)
-if AWS_ACCESS_KEY_ID and AWS_STORAGE_BUCKET_NAME:
+# Usa S3 si hay bucket configurado. Las credenciales pueden venir de
+# AWS_ACCESS_KEY_ID/SECRET o, si están vacías, del rol IAM de la instancia
+# EC2 (boto3 las resuelve automáticamente). Sin bucket: almacenamiento local.
+if AWS_STORAGE_BUCKET_NAME:
     STORAGES = {
         "default": {"BACKEND": "storages.backends.s3.S3Storage"},
         "staticfiles": {

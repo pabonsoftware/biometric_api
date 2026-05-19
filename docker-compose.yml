@@ -4,27 +4,12 @@
 # Diferencias con docker-compose.yml (dev):
 #   - imagen target "prod" (gunicorn, requirements/prod.txt, usuario no-root)
 #   - sin código por volumen, sin Flower ni Mailpit, sin debug-toolbar
-#   - db y redis NO publican puertos al host (solo red interna)
+#   - base de datos en AWS RDS (PostgreSQL gestionado, fuera del stack)
+#   - redis interno, sin puerto publicado al host
 #   - nginx como reverse proxy + TLS + estáticos
 # =========================================================
 
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: biometric_db_prod
-    restart: unless-stopped
-    # env_file pasa POSTGRES_DB/USER/PASSWORD al contenedor; la imagen los lee.
-    env_file:
-      - .env.prod
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      # $$ se expande dentro del contenedor (no requiere --env-file en compose).
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:7-alpine
     container_name: biometric_redis_prod
@@ -57,8 +42,6 @@ services:
       - static_data:/app/staticfiles
       - media_data:/app/media
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -85,8 +68,6 @@ services:
       RUN_MIGRATIONS: "false"
       COLLECT_STATIC: "false"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
       web:
@@ -109,8 +90,6 @@ services:
       RUN_MIGRATIONS: "false"
       COLLECT_STATIC: "false"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
       web:
@@ -138,7 +117,6 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
   redis_data:
   static_data:
   media_data:
