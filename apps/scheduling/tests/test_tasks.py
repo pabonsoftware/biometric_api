@@ -5,6 +5,7 @@ from django.core import mail
 
 from apps.scheduling.models import MaintenanceSchedule, ScheduledMaintenanceKind
 from apps.scheduling.tasks import send_schedule_notification
+from apps.users.tests.factories import IngenieroFactory, TecnicoFactory
 
 from .factories import MaintenanceScheduleFactory
 
@@ -57,6 +58,22 @@ class TestSendScheduleNotification:
         recipients = set(mail.outbox[0].to)
         assert "branch@clinic.test" in recipients
         assert "mantenimiento@clinic.test" in recipients
+
+    def test_includes_assigned_engineer_and_technician_emails(self, equipment):
+        engineer = IngenieroFactory(email="ingeniero@clinic.test")
+        technician = TecnicoFactory(email="tecnico@clinic.test")
+        schedule = MaintenanceScheduleFactory(
+            equipment=equipment,
+            assigned_engineer=engineer,
+            assigned_technician=technician,
+        )
+        mail.outbox = []
+
+        send_schedule_notification(schedule.pk)
+
+        recipients = set(mail.outbox[0].to)
+        assert "ingeniero@clinic.test" in recipients
+        assert "tecnico@clinic.test" in recipients
 
     def test_returns_no_recipients_when_empty(self, settings, equipment):
         settings.MAINTENANCE_NOTIFICATION_EMAILS = []
