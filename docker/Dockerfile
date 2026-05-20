@@ -1,7 +1,7 @@
 # =========================================================
 # Dockerfile multi-stage: sirve dev y producción.
-#   - dev  : runserver, requirements/dev.txt, código por volumen
-#   - prod : gunicorn, requirements/prod.txt, usuario sin privilegios
+#   - dev  : runserver (Daphne-backed vía channels), requirements/dev.txt
+#   - prod : daphne (ASGI), requirements/prod.txt, usuario sin privilegios
 # Build prod:  docker build -f docker/Dockerfile --target prod .
 # =========================================================
 
@@ -54,7 +54,9 @@ RUN chmod 755 /entrypoint.sh
 
 COPY . /app/
 
-# ---------- prod: gunicorn como usuario sin privilegios ----------
+# ---------- prod: daphne como usuario sin privilegios ----------
+# Daphne reemplaza a gunicorn-WSGI porque la app habla ASGI (HTTP + WebSocket).
+# Mantener gunicorn dejaría /ws/notifications/ caído en producción.
 FROM runtime AS prod
 
 # Usuario no-root y directorios escribibles para static/media.
@@ -68,13 +70,9 @@ USER django
 EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "3", \
-     "--timeout", "60", \
-     "--worker-tmp-dir", "/dev/shm", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", \
+     "--access-log", "-", \
+     "config.asgi:application"]
 
 # ---------- dev: runserver (stage por defecto del build) ----------
 FROM runtime AS dev

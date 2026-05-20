@@ -1,8 +1,13 @@
 from datetime import date, timedelta
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.core import mail
 
+from apps.notifications.consumers import (
+    STAFF_SUPERVISOR_GROUP,
+    user_group_name,
+)
 from apps.scheduling.models import MaintenanceSchedule, ScheduledMaintenanceKind
 from apps.scheduling.tasks import send_schedule_notification
 from apps.users.tests.factories import IngenieroFactory, TecnicoFactory
@@ -92,3 +97,71 @@ class TestSendScheduleNotification:
         result = send_schedule_notification(99999)
         assert result == "schedule_not_found"
         assert MaintenanceSchedule.objects.count() == 0
+
+
+class TestScheduleNotificationBroadcast:
+    """El push WS debe alcanzar al ingeniero, al técnico y al grupo de supervisión."""
+
+    def _capture_group_sends(self, equipment, engineer=None, technician=None):
+        schedule = MaintenanceScheduleFactory(
+            equipment=equipment,
+            assigned_engineer=engineer,
+            assigned_technician=technician,
+        )
+        mail.outbox = []
+
+        fake_layer = MagicMock()
+
+        async def fake_group_send(group, message):  # noqa: ANN001
+            fake_layer.calls.append((group, message))
+
+        fake_layer.calls = []
+        fake_layer.group_send = fake_group_send
+
+        with patch(
+            "apps.scheduling.tasks.get_channel_layer", return_value=fake_layer
+        ):
+            send_schedule_notification(schedule.pk)
+
+        return schedule, fake_layer.calls
+
+    def test_broadcasts_to_engineer_technician_and_supervisors(self, equipment):
+        engineer = IngenieroFactory()
+        technician = TecnicoFactory()
+        _, calls = self._capture_group_sends(equipment, engineer, technician)
+
+        groups = [group for group, _msg in calls]
+        assert user_group_name(engineer.pk) in groups
+        assert user_group_name(technician.pk) in groups
+        assert STAFF_SUPERVISOR_GROUP in groups
+        assert len(calls) == 3
+
+    def test_skips_assignment_groups_when_unassigned(self, equipment):
+        _, calls = self._capture_group_sends(equipment)
+        groups = [group for group, _msg in calls]
+        # Sólo el broadcast — no hay user.<pk> de nadie.
+        assert groups == [STAFF_SUPERVISOR_GROUP]
+
+    def test_payload_carries_schedule_metadata(self, equipment):
+        engineer = IngenieroFactory()
+        schedule, calls = self._capture_group_sends(equipment, engineer)
+
+        _, message = calls[0]
+        assert message["type"] == "notification.message"
+        payload = message["payload"]
+        assert payload["type"] == "schedule_email_sent"
+        assert payload["schedule_id"] == schedule.pk
+        assert payload["equipment_asset_tag"] == equipment.asset_tag
+        assert payload["scheduled_date"] == schedule.scheduled_date.isoformat()
+        assert payload["branch_name"] == equipment.branch.name
+
+    def test_skips_broadcast_when_channel_layer_unavailable(self, equipment):
+        """Si no hay channel layer (entorno sin Redis), el correo sigue siendo
+        el camino crítico — no debe lanzar ni dejar la task en estado fallido."""
+        schedule = MaintenanceScheduleFactory(equipment=equipment)
+        mail.outbox = []
+
+        with patch("apps.scheduling.tasks.get_channel_layer", return_value=None):
+            result = send_schedule_notification(schedule.pk)
+
+        assert result == "sent"

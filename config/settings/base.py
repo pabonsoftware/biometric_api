@@ -40,6 +40,12 @@ ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 # ---------------------------------------------------------------------------
 # Apps
 # ---------------------------------------------------------------------------
+# Daphne debe ir antes que django.contrib.staticfiles para sobreescribir
+# el comando runserver con la versión ASGI (HTTP + WebSocket en el mismo puerto).
+CHANNELS_APPS = [
+    "daphne",
+]
+
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -50,6 +56,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "channels",
     "rest_framework",
     "rest_framework_simplejwt",
     "django_filters",
@@ -66,13 +73,14 @@ LOCAL_APPS: list[str] = [
     "apps.maintenance",
     "apps.scheduling",
     "apps.failures",
+    "apps.notifications",
     # Las apps de dominio se irán agregando incrementalmente:
     # "apps.core",
 ]
 
 AUTH_USER_MODEL = "users.User"
 
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+INSTALLED_APPS = CHANNELS_APPS + DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # ---------------------------------------------------------------------------
 # Middleware
@@ -245,6 +253,18 @@ DEFAULT_FROM_EMAIL = env(
     "DEFAULT_FROM_EMAIL",
     default="Biometric API <noreply@biometric.local>",
 )
+
+# ---------------------------------------------------------------------------
+# Channels (WebSocket layer sobre el mismo Redis del broker de Celery,
+# en una DB distinta para no chocar con colas/resultados)
+# ---------------------------------------------------------------------------
+REDIS_CHANNEL_URL = env("REDIS_CHANNEL_URL", default="redis://localhost:6379/2")
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [REDIS_CHANNEL_URL]},
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Celery

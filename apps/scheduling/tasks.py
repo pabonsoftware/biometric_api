@@ -3,11 +3,18 @@ from __future__ import annotations
 from email.mime.image import MIMEImage
 from pathlib import Path
 
+from asgiref.sync import async_to_sync
 from celery import shared_task
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
+
+from apps.notifications.consumers import (
+    STAFF_SUPERVISOR_GROUP,
+    user_group_name,
+)
 
 # Logo embebido como imagen inline (cid) — se ve sin depender de imágenes
 # externas y sin que el cliente de correo las bloquee. El template HTML lo
@@ -88,4 +95,44 @@ def send_schedule_notification(self, schedule_id: int) -> str:
 
     schedule.notified_at = timezone.now()
     schedule.save(update_fields=["notified_at", "updated_at"])
+
+    _broadcast_schedule_notification(schedule, equipment, branch, subject)
     return "sent"
+
+
+def _broadcast_schedule_notification(schedule, equipment, branch, subject: str) -> None:
+    """Empuja el evento al channel layer para que los clientes WS lo reciban.
+
+    Los destinatarios reflejan al ingeniero/técnico asignados (uno-a-uno) más
+    el broadcast de supervisión. Si el channel layer no está configurado
+    (entornos de test sin Redis), salimos en silencio: el correo ya se envió.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    payload = {
+        "type": "schedule_email_sent",
+        "schedule_id": schedule.pk,
+        "equipment_asset_tag": equipment.asset_tag,
+        "scheduled_date": schedule.scheduled_date.isoformat(),
+        "branch_name": branch.name,
+        "subject": subject,
+        "sent_at": (schedule.notified_at or timezone.now()).isoformat(),
+    }
+
+    targets: list[str] = []
+    if schedule.assigned_engineer_id:
+        targets.append(user_group_name(schedule.assigned_engineer_id))
+    if (
+        schedule.assigned_technician_id
+        and schedule.assigned_technician_id != schedule.assigned_engineer_id
+    ):
+        targets.append(user_group_name(schedule.assigned_technician_id))
+    targets.append(STAFF_SUPERVISOR_GROUP)
+
+    for group in targets:
+        async_to_sync(channel_layer.group_send)(
+            group,
+            {"type": "notification.message", "payload": payload},
+        )
