@@ -9,7 +9,7 @@ from .models import Equipment
 
 def build_qr_payload(equipment: Equipment) -> str:
     base = settings.FRONTEND_BASE_URL.rstrip("/")
-    return f"{base}/equipment/{equipment.id}"
+    return f"{base}/admin/equipos/{equipment.id}"
 
 
 def generate_qr_for_equipment(equipment: Equipment) -> None:

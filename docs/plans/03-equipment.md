@@ -5,7 +5,7 @@
 
 ## 1. Objetivo y alcance
 
-CRUD de equipos biomédicos con generación automática de **código QR** al crear un equipo. El QR codifica la URL del frontend para ese equipo (`{FRONTEND_BASE_URL}/equipment/{id}`) y se almacena como archivo PNG vía el `STORAGES["default"]` (S3 en prod, FileSystemStorage en dev).
+CRUD de equipos biomédicos con generación automática de **código QR** al crear un equipo. El QR codifica la URL del frontend para ese equipo (`{FRONTEND_BASE_URL}/admin/equipos/{id}`) y se almacena como archivo PNG vía el `STORAGES["default"]` (S3 en prod, FileSystemStorage en dev).
 
 **Out of scope:**
 
