@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.equipment.models import Equipment
@@ -37,6 +37,22 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     )
     def by_asset_tag(self, request, tag: str = ""):
         equipment = get_object_or_404(Equipment, asset_tag__iexact=tag.strip())
+        serializer = self.get_serializer(equipment)
+        return Response(serializer.data)
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path="public",
+        permission_classes=[AllowAny],
+    )
+    def public(self, request, pk: int = None):
+        """Ficha de solo lectura accesible sin autenticación.
+
+        Es el destino al que apunta el QR del equipo: cualquiera que lo
+        escanee ve la información básica sin necesidad de iniciar sesión.
+        """
+        equipment = self.get_object()
         serializer = self.get_serializer(equipment)
         return Response(serializer.data)
 

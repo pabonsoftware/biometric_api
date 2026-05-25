@@ -8,8 +8,10 @@ from .models import Equipment
 
 
 def build_qr_payload(equipment: Equipment) -> str:
+    # Ruta PÚBLICA del frontend (vista de solo lectura), fuera de /admin/ para
+    # no colisionar con el admin de Django ni exigir login al escanear el QR.
     base = settings.FRONTEND_BASE_URL.rstrip("/")
-    return f"{base}/admin/equipos/{equipment.id}"
+    return f"{base}/equipos/{equipment.id}"
 
 
 def generate_qr_for_equipment(equipment: Equipment) -> None:
